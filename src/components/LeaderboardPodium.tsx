@@ -1,0 +1,76 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { User, Crown } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Ranking {
+  user_id: string;
+  full_name: string;
+  is_anonymous: boolean;
+  current_average: number;
+  rank: number;
+}
+
+export default function LeaderboardPodium({ topThree, currentUserId }: { topThree: Ranking[], currentUserId: string }) {
+  // We expect exactly 3 items, but handle fewer just in case
+  const first = topThree.find(u => u.rank === 1);
+  const second = topThree.find(u => u.rank === 2);
+  const third = topThree.find(u => u.rank === 3);
+
+  const PodiumItem = ({ user, place, height, color, delay }: any) => {
+    if (!user) return <div className="w-1/3"></div>;
+    const isMe = user.user_id === currentUserId;
+    
+    return (
+      <div className="flex flex-col items-center justify-end w-1/3">
+        {/* Avatar / Name */}
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: delay + 0.2 }}
+            className="flex flex-col items-center mb-3 text-center"
+        >
+          {place === 1 && <Crown className="w-6 h-6 text-yellow-400 mb-1 animate-bounce" />}
+          
+          <div className={cn(
+             "w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs mb-2 border-2",
+             isMe ? "border-white bg-green-600 text-white" : "border-gray-700 bg-gray-800 text-gray-400"
+          )}>
+             {isMe ? "ME" : <User className="w-4 h-4" />}
+          </div>
+          
+          <span className={cn("text-xs font-bold truncate max-w-[80px]", isMe ? "text-white" : "text-gray-300")}>
+             {isMe ? "You" : (user.is_anonymous ? "Anonymous" : user.full_name.split(' ')[0])}
+          </span>
+          <span className={cn("text-xs font-mono font-bold", color)}>
+             {user.current_average.toFixed(1)}%
+          </span>
+        </motion.div>
+
+        {/* The Box */}
+        <motion.div
+           initial={{ height: 0 }}
+           animate={{ height: height }}
+           transition={{ duration: 0.5, delay: delay, type: "spring" }}
+           className={cn(
+             "w-full rounded-t-lg flex items-end justify-center pb-4 text-4xl font-black text-black/20",
+             place === 1 ? "bg-gradient-to-t from-yellow-600 to-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)]" :
+             place === 2 ? "bg-gradient-to-t from-gray-500 to-gray-300" :
+             "bg-gradient-to-t from-amber-800 to-amber-600"
+           )}
+        >
+          {place}
+        </motion.div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex items-end justify-center gap-4 h-[250px] w-full max-w-md mx-auto mb-8 px-4">
+      <PodiumItem user={second} place={2} height="120px" color="text-gray-300" delay={0.2} />
+      <PodiumItem user={first} place={1} height="160px" color="text-yellow-400" delay={0} />
+      <PodiumItem user={third} place={3} height="80px" color="text-amber-600" delay={0.4} />
+    </div>
+  );
+}

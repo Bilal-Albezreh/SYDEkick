@@ -1,0 +1,114 @@
+[
+  {
+    "course_code": "SYDE 263",
+    "course_name": "Engineering Prototyping",
+    "color": "#FFD74F",
+    "grading_type": "Pass/Fail",
+    "assessments": [
+      { "title": "Safety Training", "date": "2026-01-09", "weight": 0, "type": "Requirement", "notes": "Must complete by end of Week 1" },
+      { "title": "Lab 1: CAD and Parametric Design", "date": "2026-01-23", "weight": 0, "type": "Lab (Required)", "notes": "Pass/Fail. Due Week 3." },
+      { "title": "Final Project Proposal", "date": "2026-01-23", "weight": 0, "type": "Project", "notes": "Pass/Fail. Due Week 3." },
+      { "title": "Lab 2: Reverse Engineering", "date": "2026-01-30", "weight": 0, "type": "Lab (Optional)", "notes": "Pass/Fail. Due Week 4." },
+      { "title": "Lab 3: Sensors", "date": "2026-02-06", "weight": 0, "type": "Lab (Required)", "notes": "Pass/Fail. Due Week 5." },
+      { "title": "Intro Fabrication Project", "date": "2026-02-06", "weight": 0, "type": "Project", "notes": "Pass/Fail. Due Week 5." },
+      { "title": "Lab 4: Machining", "date": "2026-02-13", "weight": 0, "type": "Lab (Optional)", "notes": "Pass/Fail. Due Week 6." },
+      { "title": "Final Project Interim 1", "date": "2026-02-13", "weight": 0, "type": "Project", "notes": "Pass/Fail. Due Week 6." },
+      { "title": "Lab 5: Actuators", "date": "2026-02-27", "weight": 0, "type": "Lab (Required)", "notes": "Pass/Fail. Due Week 7." },
+      { "title": "Lab 6: Embedded Systems", "date": "2026-03-06", "weight": 0, "type": "Lab (Required)", "notes": "Pass/Fail. Due Week 8." },
+      { "title": "Final Project Interim 2", "date": "2026-03-13", "weight": 0, "type": "Project", "notes": "Pass/Fail. Due Week 9." },
+      { "title": "Final Project", "date": "2026-04-03", "weight": 0, "type": "Project", "notes": "Pass/Fail. Due Week 12." }
+    ]
+  },
+  {
+    "course_code": "SYDE 285",
+    "course_name": "Material Chemistry",
+    "color": "#3B82F6",
+    "grading_type": "Percentage",
+    "assessments": [
+      { "title": "Assignment 1", "date": "2026-01-25", "weight": 1.5, "type": "Assignment", "notes": "Topics: Intro, Mechanical Props, Failure" },
+      { "title": "Quiz 1", "date": "2026-01-25", "weight": 1, "type": "Quiz", "notes": "Best 2 of 4 quizzes count (4% total)" },
+      { "title": "Project Phase 1: FEA & Walker Testing", "date": "2026-01-29", "weight": 5, "type": "Project", "notes": "Part of 15% Term Project" },
+      { "title": "Assignment 2", "date": "2026-02-08", "weight": 1.5, "type": "Assignment", "notes": "Topics: Crystal Structure, Diffusion, Imperfections" },
+      { "title": "Quiz 2", "date": "2026-02-08", "weight": 1, "type": "Quiz", "notes": "Best 2 of 4 quizzes count" },
+      { "title": "Project Phase 2: Granta", "date": "2026-02-12", "weight": 5, "type": "Project", "notes": "Part of 15% Term Project" },
+      { "title": "Midterm Exam", "date": "2026-02-24", "weight": 20, "type": "Exam", "notes": "10:00am - 11:20am at AL 113. Same day as SYDE 182 Midterm." },
+      { "title": "Project Phase 3: Apply to Walker", "date": "2026-02-26", "weight": 5, "type": "Project", "notes": "Part of 15% Term Project" },
+      { "title": "Assignment 3", "date": "2026-03-08", "weight": 1.5, "type": "Assignment", "notes": "Topics: Phase Diagrams, Fabrication" },
+      { "title": "Quiz 3", "date": "2026-03-08", "weight": 1, "type": "Quiz", "notes": "Best 2 of 4 quizzes count" },
+      { "title": "Assignment 4", "date": "2026-03-15", "weight": 1.5, "type": "Assignment", "notes": "Topics: Polymers, Ceramics" },
+      { "title": "Quiz 4", "date": "2026-03-15", "weight": 1, "type": "Quiz", "notes": "Best 2 of 4 quizzes count" },
+      { "title": "Case Studies & Tutorial Activities", "date": "2026-04-06", "weight": 10, "type": "Participation", "notes": "Ongoing group work in tutorials" },
+      { "title": "Final Exam", "date": "TBD", "weight": 45, "type": "Exam", "notes": "During exam period" }
+    ]
+  },
+  {
+    "course_code": "SYDE 182",
+    "course_name": "Physics 2: Dynamics",
+    "color": "#EF4444",
+    "grading_type": "Percentage",
+    "assessments": [
+      { "title": "Quiz 1", "date": "2026-01-29", "weight": 15, "type": "Quiz", "notes": "12:30pm - 1:30pm" },
+      { "title": "Midterm Exam", "date": "2026-02-24", "weight": 35, "type": "Exam", "notes": "12:30pm - 2:30pm. Same day as SYDE 285 Midterm." },
+      { "title": "Quiz 2", "date": "2026-03-19", "weight": 15, "type": "Quiz", "notes": "12:30pm - 1:30pm" },
+      { "title": "Final Exam", "date": "TBD", "weight": 35, "type": "Exam", "notes": "Not cumulative" }
+    ]
+  },
+  {
+    "course_code": "SYDE 283",
+    "course_name": "Physics 3: EMO",
+    "color": "#10B981",
+    "grading_type": "Percentage",
+    "assessments": [
+      { "title": "Topic Mastery 1", "date": "2026-01-12", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Topic Mastery 2", "date": "2026-01-19", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Topic Mastery 3", "date": "2026-01-26", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Unit Test 1", "date": "2026-02-02", "weight": 23.33, "type": "Test", "notes": "Topics 1-3. Best of 3 tests is worth 30%." },
+      { "title": "Topic Mastery 4", "date": "2026-02-05", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Topic Mastery 5", "date": "2026-02-09", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Mini Project Proposal", "date": "2026-02-13", "weight": 0, "type": "Project", "notes": "Graded as part of final project" },
+      { "title": "Topic Mastery 6", "date": "2026-02-27", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Topic Mastery 7", "date": "2026-03-06", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Unit Test 2", "date": "2026-03-13", "weight": 23.33, "type": "Test", "notes": "Topics 4-7" },
+      { "title": "Topic Mastery 8", "date": "2026-03-16", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Topic Mastery 9", "date": "2026-03-20", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Topic Mastery 10", "date": "2026-03-27", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Mini Project Final", "date": "2026-04-03", "weight": 10, "type": "Project", "notes": "Submit via LEARN" },
+      { "title": "Topic Mastery 11", "date": "2026-04-06", "weight": 2, "type": "Quiz", "notes": "Best 10 of 11 count" },
+      { "title": "Unit Test 3", "date": "TBD", "weight": 23.33, "type": "Test", "notes": "Topics 8-11. During Exam Period." }
+    ]
+  },
+  {
+    "course_code": "SYDE 261",
+    "course_name": "Design, Systems, and Society",
+    "color": "#8B5CF6",
+    "grading_type": "Percentage",
+    "assessments": [
+      { "title": "Post-Workshop Reflection 1", "date": "2026-01-16", "weight": 4, "type": "Assignment", "notes": "Individual. Due at 11:59PM." },
+      { "title": "Post-Workshop Reflection 2", "date": "2026-01-30", "weight": 4, "type": "Assignment", "notes": "Individual. Due at 11:59PM." },
+      { "title": "Design Project: Problem Definition", "date": "2026-02-06", "weight": 10, "type": "Project", "notes": "Group submission. Due at 11:59PM." },
+      { "title": "Post-Workshop Reflection 3", "date": "2026-02-13", "weight": 4, "type": "Assignment", "notes": "Individual. Due at 11:59PM." },
+      { "title": "Design Project: Conceptual Design", "date": "2026-03-06", "weight": 15, "type": "Project", "notes": "Group submission. Due at 11:59PM." },
+      { "title": "Post-Workshop Reflection 4", "date": "2026-03-13", "weight": 4, "type": "Assignment", "notes": "Individual. Due at 11:59PM." },
+      { "title": "Design Project: Detailed Design", "date": "2026-03-27", "weight": 20, "type": "Project", "notes": "Group submission. Due at 11:59PM." },
+      { "title": "Participation", "date": "2026-04-06", "weight": 10, "type": "Participation", "notes": "Assessed throughout term." },
+      { "title": "Design Fair", "date": "2026-04-06", "weight": 5, "type": "Event", "notes": "Mandatory attendance." },
+      { "title": "Final Design Report", "date": "2026-04-10", "weight": 24, "type": "Project", "notes": "Group submission. Due at 11:59PM." }
+    ]
+  },
+  {
+    "course_code": "SYDE 211",
+    "course_name": "Calculus 3",
+    "color": "#F97316",
+    "grading_type": "Percentage",
+    "assessments": [
+      { "title": "Written Assignment 1", "date": "2026-01-22", "weight": 3.75, "type": "Assignment", "notes": "Due via Crowdmark/Mobius. Best 4 of 5 written assignments." },
+      { "title": "Written Assignment 2", "date": "2026-02-05", "weight": 3.75, "type": "Assignment", "notes": "Due via Crowdmark/Mobius." },
+      { "title": "Written Assignment 3", "date": "2026-02-26", "weight": 3.75, "type": "Assignment", "notes": "Due via Crowdmark/Mobius." },
+      { "title": "Midterm Exam", "date": "2026-02-27", "weight": 30, "type": "Exam", "notes": "4:30PM - 6:20PM. Note: This is 3 days after your Double Midterm day." },
+      { "title": "Written Assignment 4", "date": "2026-03-12", "weight": 3.75, "type": "Assignment", "notes": "Due via Crowdmark/Mobius." },
+      { "title": "Written Assignment 5", "date": "2026-03-26", "weight": 3.75, "type": "Assignment", "notes": "Due via Crowdmark/Mobius." },
+      { "title": "Mobius Digital Assignments", "date": "2026-04-06", "weight": 5, "type": "Assignment", "notes": "Ongoing throughout term (10 assignments)." },
+      { "title": "Final Exam", "date": "TBD", "weight": 50, "type": "Exam", "notes": "During exam period." }
+    ]
+  }
+]
