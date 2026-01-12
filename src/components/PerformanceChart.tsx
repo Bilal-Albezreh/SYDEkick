@@ -109,7 +109,7 @@ export default function PerformanceChart({ rawData, currentUserId }: { rawData: 
           <Tooltip 
             contentStyle={{ backgroundColor: '#252525', border: 'none', borderRadius: '8px', color: '#fff' }}
             itemStyle={{ fontSize: '12px' }}
-            formatter={(value: number) => [`${value}%`]}
+            formatter={(value: number | string | undefined) => [`${value}%`]}
           />
           
           <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
