@@ -1,68 +1,112 @@
 import { createClient } from "@/utils/supabase/server";
-import { getDashboardData } from "@/app/actions";
-import { 
-  QuoteWidget, 
-  CountdownWidget, 
-  UpcomingWidget, 
-  ProgressWidget, 
-  RankWidget,
-  ChatWidget // 1. Imported here
-} from "@/components/DashboardWidgets";
+import { redirect } from "next/navigation";
+import { seedUserCourses } from "@/app/actions/seed";
+import DashboardGrid from "@/components/DashboardWidgets";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) return <div className="text-white p-10">Please login.</div>;
+  if (!user) redirect("/login");
 
-  const data = await getDashboardData();
-  
-  if (!data) return <div>Loading...</div>;
+  // 1. Fetch User Data (Courses + Assessments)
+  const { data: courses } = await supabase
+    .from("courses")
+    .select(`
+      id, course_code, course_name, color,
+      assessments (id, name, weight, score, due_date, is_completed)
+    `)
+    .eq("user_id", user.id);
 
-  // 2. Destructured 'messages' from data
-  const { upcoming, courseProgress, myRank, topRank, messages } = data;
+  if (!courses || courses.length === 0) {
+    await seedUserCourses();
+    redirect("/dashboard");
+  }
+
+  // 2. Fetch Chat Messages (Recent 50)
+  const { data: messages } = await supabase
+    .from("messages")
+    .select(`
+      id, content, created_at, user_id,
+      profiles (full_name, is_anonymous, avatar_url)
+    `)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  // 3. Calculate Leaderboard (Simplified for Dashboard View)
+  // Fetch ALL participating students to calculate rank
+  // FIX: specific variable name aliasing
+  const { data: allProfiles } = await supabase
+    .from("profiles")
+    .select("id, full_name, is_anonymous")
+    .eq("is_participating", true);
+
+  // We need to fetch grades for ALL students to rank them. 
+  const { data: allAssessments } = await supabase
+    .from("assessments")
+    .select("user_id, score, weight")
+    .not("score", "is", null);
+
+  // Calc Average per user
+  const userAverages = new Map();
+  allAssessments?.forEach((a) => {
+    if (!userAverages.has(a.user_id)) userAverages.set(a.user_id, { earned: 0, attempted: 0 });
+    const u = userAverages.get(a.user_id);
+    u.earned += (a.score / 100) * a.weight;
+    u.attempted += a.weight;
+  });
+
+  const rankedUsers = Array.from(userAverages.entries()).map(([uid, stats]) => {
+     const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
+     // FIX: Updated reference here
+     const profile = allProfiles?.find(p => p.id === uid);
+     return {
+        user_id: uid,
+        current_average: avg,
+        full_name: profile?.full_name || "Unknown",
+        is_anonymous: profile?.is_anonymous || false
+     };
+  }).sort((a, b) => b.current_average - a.current_average);
+
+  // Find My Rank
+  const myIndex = rankedUsers.findIndex(u => u.user_id === user.id);
+  const myRankData = myIndex !== -1 ? {
+    rank: myIndex + 1,
+    trend: 0, // Placeholder for now
+    current_average: rankedUsers[myIndex].current_average,
+    totalStudents: rankedUsers.length,
+    gap: myIndex > 0 ? (rankedUsers[myIndex - 1].current_average - rankedUsers[myIndex].current_average) : 0,
+    gapMessage: "to overtake",
+    user_id: user.id
+  } : null;
+
+  // 4. PREPARE CURRENT USER DATA
+  // We need to pass this to the Chat Widget to prevent the "Flash"
+  const currentUser = {
+    id: user.id,
+    name: user.user_metadata.full_name || "Agent",
+    avatar: user.user_metadata.avatar_url || null // Supabase Auth usually stores this here, or fetch from 'profiles' if you prefer
+  };
+  
+  // If you want the CUSTOM profile picture you uploaded to Supabase Storage:
+  const { data: myProfile } = await supabase.from("profiles").select("avatar_url, full_name").eq("id", user.id).single();
+  if (myProfile) {
+      currentUser.name = myProfile.full_name;
+      currentUser.avatar = myProfile.avatar_url;
+  }
 
   return (
-    <main className="min-h-screen bg-[#111] text-gray-200 p-8">
-      
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-gray-400 text-sm">Welcome back, Engineer.</p>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-white tracking-tight">Command Center</h1>
+        <p className="text-gray-500">Welcome back, {currentUser.name.split(' ')[0]}.</p>
       </div>
 
-      {/* Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        {/* ROW 1: Quote (Span 3) & Countdown (Span 1) */}
-        <div className="lg:col-span-3">
-           <QuoteWidget />
-        </div>
-        <div className="lg:col-span-1">
-           <CountdownWidget />
-        </div>
-
-        {/* ROW 2: Upcoming (Span 2) & Rank (Span 1) & Progress (Span 1) */}
-        <div className="lg:col-span-2">
-           <UpcomingWidget data={upcoming || []} />
-        </div>
-
-        <div className="lg:col-span-1">
-           <RankWidget myRank={myRank} topRank={topRank} />
-        </div>
-
-        {/* Course Progress spans 2 rows */}
-        <div className="lg:col-span-1 lg:row-span-2">
-           <ProgressWidget data={courseProgress || []} />
-        </div>
-
-        {/* ROW 3: Chat Widget (Span 3) */}
-        {/* 3. Used here - this reads the value and removes the error */}
-        <div className="lg:col-span-3">
-           <ChatWidget initialMessages={messages || []} />
-        </div>
-
-      </div>
-    </main>
+      <DashboardGrid 
+          courses={courses} 
+          messages={messages || []}
+          rankData={{ myRank: myRankData, topRank: rankedUsers }}
+          currentUser={currentUser} // <--- PASS IT HERE
+      />
+    </div>
   );
 }

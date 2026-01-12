@@ -12,34 +12,46 @@ import {
   User, 
   LogOut,
   X,
-  Clock // <--- NEW ICON IMPORT
+  Clock,
+  MessageSquare
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 export default function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { open, setOpen, isMobile } = useSidebar();
+  
+  // Safely access Sidebar Context
+  const sidebarContext = useSidebar();
+  const open = sidebarContext?.open ?? true;
+  const setOpen = sidebarContext?.setOpen ?? (() => {});
+  const isMobile = sidebarContext?.isMobile ?? false;
+
   const supabase = createClient();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.refresh();
+    toast.success("Signed out successfully");
+    router.push("/login");
   };
 
+  // --- NAVIGATION LINKS ---
   const links = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Calendar", href: "/calendar", icon: Calendar },
-    { name: "Schedule", href: "/schedule", icon: Clock }, // <--- UPDATED HERE
-    { name: "Grades", href: "/grades", icon: BookOpen },
-    { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
-    { name: "Profile", href: "/profile", icon: User },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard }, // Overview (Widgets)
+    { name: "Grades", href: "/dashboard/grades", icon: BookOpen },    // Calculator
+    { name: "Schedule", href: "/dashboard/schedule", icon: Clock },// Calendar
+    { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
+    { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Trophy },
+    { name: "Comms", href: "/dashboard/chat", icon: MessageSquare },
+    { name: "Profile", href: "/dashboard/profile", icon: User },
   ];
 
   if (!open) return null;
 
   return (
     <>
+      {/* Mobile Overlay */}
       {isMobile && (
         <div 
             className="fixed inset-0 bg-black/80 z-40 md:hidden"
@@ -47,10 +59,13 @@ export default function AppSidebar() {
         />
       )}
 
+      {/* Sidebar Container */}
       <aside className={cn(
         "bg-[#151515] border-r border-gray-800 flex flex-col w-64 h-screen transition-all duration-300",
         isMobile ? "fixed inset-y-0 left-0 z-50 shadow-2xl" : "relative shrink-0"
       )}>
+        
+        {/* Header / Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
           <span className="font-bold text-xl tracking-tighter text-white">
             Syde<span className="text-blue-500">Kick</span>
@@ -62,6 +77,7 @@ export default function AppSidebar() {
           )}
         </div>
 
+        {/* Navigation Items */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {links.map((link) => {
             const Icon = link.icon;
@@ -85,6 +101,7 @@ export default function AppSidebar() {
           })}
         </nav>
 
+        {/* Footer / Logout */}
         <div className="p-4 border-t border-gray-800">
             <button 
                 onClick={handleSignOut}

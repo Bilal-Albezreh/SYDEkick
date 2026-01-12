@@ -1,8 +1,20 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, GraduationCap } from "lucide-react";
+import { createClient } from "@/utils/supabase/server"; // Added logic
+import { redirect } from "next/navigation"; // Added logic
 
-export default function Home() {
+export default async function Home() {
+  // --- NEW LOGIC START ---
+  // If user is already logged in, skip the landing page and go to dashboard
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    redirect("/dashboard");
+  }
+  // --- NEW LOGIC END ---
+
   return (
     <main className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden">
       
@@ -26,23 +38,23 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Buttons - FIXED STYLING & LINKS */}
+        {/* Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
           
-          {/* 1. Login Button: Solid White, Black Text */}
+          {/* 1. Login Button */}
           <Link href="/login" className="w-full sm:w-auto">
             <Button className="w-full h-12 px-8 text-base font-bold rounded-full bg-white text-black hover:bg-gray-200 transition-transform hover:scale-105">
               Login
             </Button>
           </Link>
 
-          {/* 2. Create Account: White Outline, Hover fills White */}
+          {/* 2. Create Account */}
           <Link href="/login?view=signup" className="w-full sm:w-auto">
              <Button 
                 variant="outline" 
                 className="w-full h-12 px-8 text-base font-medium rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-black transition-all"
              >
-               Create Account <ArrowRight className="w-4 h-4 ml-2" />
+                Create Account <ArrowRight className="w-4 h-4 ml-2" />
              </Button>
           </Link>
 

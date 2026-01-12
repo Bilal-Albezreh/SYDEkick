@@ -149,7 +149,7 @@ export default function SchedulePage() {
           </div>
 
           {/* MAIN GRID */}
-          <div className="grid grid-cols-[50px_1fr_1fr_1fr_1fr_1fr] relative h-full">
+          <div className="grid grid-cols-[50px_1fr_1fr_1fr_1fr_1fr] relative h-full overflow-y-auto">
             
             {/* TIME COLUMN */}
             <div className="relative border-r border-gray-800/50">

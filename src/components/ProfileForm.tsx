@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { updateProfile, togglePrivacy, updateUserPassword, uploadAvatar, toggleParticipation } from "@/app/actions";
+import { updateProfile, togglePrivacy, updateUserPassword, uploadAvatar, toggleParticipation } from "@/app/actions/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// FIXED IMPORT: Added Trophy and Ghost
 import { User, Shield, Save, Loader2, Eye, EyeOff, Lock, KeyRound, Camera, Ghost, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -48,10 +47,11 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
 
     setUploading(true);
     try {
-        await uploadAvatar(formData);
-        const objectUrl = URL.createObjectURL(file);
-        setAvatarUrl(objectUrl); 
-        toast.success("Avatar updated!");
+        const { publicUrl } = await uploadAvatar(formData);
+        if (publicUrl) {
+            setAvatarUrl(publicUrl); 
+            toast.success("Avatar updated!");
+        }
     } catch (error) {
         console.error(error);
         toast.error("Failed to upload image");
@@ -234,8 +234,8 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
                     </div>
                     <p className="text-xs text-gray-500 mt-1 max-w-sm">
                         {isParticipating 
-                            ? "You are ranked against other students."
-                            : "You are removed from the leaderboard entirely."}
+                           ? "You are ranked against other students."
+                           : "You are removed from the leaderboard entirely."}
                     </p>
                 </div>
                 
