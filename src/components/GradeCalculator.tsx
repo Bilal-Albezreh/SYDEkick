@@ -96,31 +96,33 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
   const selectedCourseStats = selectedCourse ? getCourseStats(selectedCourse) : null;
 
-  // --- STABLE SORTING LOGIC ---
+  // --- STABLE SORTING LOGIC (FIXED) ---
   const sortedAssessments = useMemo(() => {
     if (!selectedCourse) return [];
     
-    // We sort a COPY so we don't mutate the state directly
     return [...selectedCourse.assessments].sort((a, b) => {
-        // 1. Handling "No Due Date" (Goes to Top)
-        if (!a.due_date && b.due_date) return -1;
-        if (a.due_date && !b.due_date) return 1;
-        
-        // 2. Both have no date? Sort by Name to prevent jumping
-        if (!a.due_date && !b.due_date) {
-             return (a.name || "").localeCompare(b.name || "");
-        }
-        
-        // 3. Both have dates: Sort Ascending (Earliest First)
-        const dateA = new Date(a.due_date).getTime();
-        const dateB = new Date(b.due_date).getTime();
-        
-        if (dateA !== dateB) {
+        // Parse dates safely
+        const dateA = a.due_date ? new Date(a.due_date).getTime() : null;
+        const dateB = b.due_date ? new Date(b.due_date).getTime() : null;
+
+        // Check if dates are valid numbers
+        const validA = dateA !== null && !isNaN(dateA);
+        const validB = dateB !== null && !isNaN(dateB);
+
+        // 1. Handling "No Valid Date" (Move to BOTTOM)
+        // If A has no date, it goes after B (return 1)
+        if (!validA && validB) return 1; 
+        // If B has no date, A goes before B (return -1)
+        if (validA && !validB) return -1;
+
+        // 2. Both have dates: Sort Ascending (Earliest First)
+        if (validA && validB && dateA !== dateB) {
             return dateA - dateB;
         }
-        
-        // 4. Dates are exactly equal? Sort by Name to prevent jumping
-        return (a.name || "").localeCompare(b.name || "");
+
+        // 3. Fallback: Sort by Name (Numeric Aware)
+        // This handles "Quiz 2" vs "Quiz 10" correctly
+        return (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [selectedCourse]);
 
@@ -273,9 +275,9 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                         <div className="flex items-center gap-3">
                            <div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: course.color }} />
                            <div className="min-w-0">
-                              <div className={cn("font-bold text-sm truncate", isSelected ? "text-white" : "text-gray-300")}>
+                             <div className={cn("font-bold text-sm truncate", isSelected ? "text-white" : "text-gray-300")}>
                                  {course.course_code}
-                              </div>
+                             </div>
                            </div>
                         </div>
                         <div className={cn("text-sm font-mono font-bold", getGradeColor(stats))}>
@@ -426,7 +428,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                                    <div className="text-xs font-bold px-1.5 py-0.5 bg-white/10 rounded text-gray-400">
                                       Weight: {assess.weight}%
                                    </div>
-                                   {/* Added Date Display */}
+                                   {/* Date Display */}
                                    {assess.due_date && (
                                        <div className="text-xs text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded bg-black/30">
                                             {new Date(assess.due_date).toLocaleDateString()}
@@ -448,8 +450,8 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                                         "w-20 h-12 text-center text-xl font-bold rounded-lg transition-all duration-200",
                                         "border-2 focus:ring-0 focus:ring-offset-0 placeholder:text-gray-700",
                                         isHypothetical 
-                                           ? "bg-purple-500/10 border-purple-500/20 text-purple-300 focus:border-purple-400 focus:bg-purple-500/20" 
-                                           : "bg-black/40 border-white/5 text-white focus:border-blue-500/50 focus:bg-black/60",
+                                            ? "bg-purple-500/10 border-purple-500/20 text-purple-300 focus:border-purple-400 focus:bg-purple-500/20" 
+                                            : "bg-black/40 border-white/5 text-white focus:border-blue-500/50 focus:bg-black/60",
                                         parseFloat(assess.score) >= 100 && "border-green-500/30 text-green-400 bg-green-500/5"
                                      )}
                                   />
