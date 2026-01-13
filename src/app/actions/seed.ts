@@ -8,7 +8,19 @@ export async function seedCourses(force: boolean = false) {
 
   if (!user) return { error: "Unauthorized" };
 
-  // 1. SAFETY CHECK
+  // --- SAFETY NET 1: PERMISSION CHECK ---
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_approved")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || !profile.is_approved) {
+    return { error: "Forbidden: Account not approved." };
+  }
+  // --------------------------------------
+
+  // 1. SAFETY CHECK (Existing Logic)
   if (!force) {
     const { count } = await supabase
       .from("courses")
@@ -21,8 +33,8 @@ export async function seedCourses(force: boolean = false) {
   }
 
   // 2. CLEAR EXISTING DATA
+  // thanks to ON DELETE CASCADE (Part 1), we only need to delete the parent!
   if (force) {
-    await supabase.from("assessments").delete().eq("user_id", user.id); // Delete children first
     await supabase.from("courses").delete().eq("user_id", user.id);
   }
 

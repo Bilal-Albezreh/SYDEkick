@@ -3,13 +3,50 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
+// --- HELPER: SECURITY BARRIER ---
+// Validates Auth AND Approval Status (Optional)
+// Usage: const { supabase, user } = await validateUser(true);
+async function validateUser(requireApproval = true) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) throw new Error("Unauthorized");
+
+  if (requireApproval) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_approved")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.is_approved) {
+      throw new Error("Forbidden: Account not approved.");
+    }
+  }
+
+  return { supabase, user };
+}
+
 // --- 1. GRADE CALCULATOR ---
 
 export async function updateAssessmentScore(assessmentId: string, score: number | null) {
-  const supabase = await createClient();
+  // SAFETY 1: Enforce Approval
+  const { supabase } = await validateUser(true);
+
+  // SAFETY 2: Input Validation
+  if (score !== null) {
+    if (score < 0 || score > 100) {
+      throw new Error("Invalid Score: Must be between 0 and 100.");
+    }
+  }
+
+  // LOGIC: If a score is set, mark as completed. If cleared, unmark.
   const { error } = await supabase
     .from("assessments")
-    .update({ score: score })
+    .update({ 
+      score: score,
+      is_completed: score !== null 
+    })
     .eq("id", assessmentId);
 
   if (error) {
@@ -22,7 +59,9 @@ export async function updateAssessmentScore(assessmentId: string, score: number 
 
 // Needed for Calendar Checkboxes
 export async function toggleAssessmentCompletion(assessmentId: string, isCompleted: boolean) {
-  const supabase = await createClient();
+  // SAFETY: Enforce Approval
+  const { supabase } = await validateUser(true);
+
   await supabase
     .from("assessments")
     .update({ is_completed: isCompleted })
@@ -34,9 +73,8 @@ export async function toggleAssessmentCompletion(assessmentId: string, isComplet
 // --- 2. CHAT (WITH AUTO-CLEANUP) ---
 
 export async function postMessage(content: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  // SAFETY: Enforce Approval (No spam from unapproved users)
+  const { supabase, user } = await validateUser(true);
 
   // Auto-delete messages older than 48 hours
   const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
@@ -60,9 +98,8 @@ export async function postMessage(content: string) {
 // --- 3. LEADERBOARD CALCULATIONS ---
 
 export async function getLeaderboardData() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  // SAFETY: Enforce Approval (Privacy - don't show stats to unapproved users)
+  const { supabase, user } = await validateUser(true);
 
   // A. Fetch Participating Profiles
   const { data: profiles } = await supabase
@@ -156,17 +193,17 @@ export async function getLeaderboardData() {
      let myScore = 0;
 
      userMap.forEach((stats: any, uid: string) => {
-        const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
-        totalClassAvg += avg;
-        count++;
-        if (uid === user.id) myScore = avg;
+       const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
+       totalClassAvg += avg;
+       count++;
+       if (uid === user.id) myScore = avg;
      });
 
      return {
-        subject,
-        A: myScore, 
-        B: count === 0 ? 0 : totalClassAvg / count, 
-        fullMark: 100
+       subject,
+       A: myScore, 
+       B: count === 0 ? 0 : totalClassAvg / count, 
+       fullMark: 100
      };
   });
 
@@ -176,9 +213,8 @@ export async function getLeaderboardData() {
 // --- 4. PROFILE MANAGEMENT ---
 
 export async function updateProfile(fullName: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  // SAFETY: Allow unapproved users to fix their name (pass false)
+  const { supabase, user } = await validateUser(false);
 
   await supabase
     .from("profiles")
@@ -189,15 +225,16 @@ export async function updateProfile(fullName: string) {
 }
 
 export async function updateUserPassword(password: string) {
-  const supabase = await createClient();
+  // SAFETY: Allow unapproved users to change password (pass false)
+  const { supabase } = await validateUser(false);
+  
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw new Error(error.message);
 }
 
 export async function togglePrivacy(isAnonymous: boolean) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  // SAFETY: Enforce Approval
+  const { supabase, user } = await validateUser(true);
 
   await supabase
     .from("profiles")
@@ -209,9 +246,8 @@ export async function togglePrivacy(isAnonymous: boolean) {
 }
 
 export async function toggleParticipation(isParticipating: boolean) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  // SAFETY: Enforce Approval
+  const { supabase, user } = await validateUser(true);
 
   await supabase
     .from("profiles")
@@ -223,9 +259,8 @@ export async function toggleParticipation(isParticipating: boolean) {
 }
 
 export async function uploadAvatar(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  // SAFETY: Allow unapproved users to upload avatar (pass false)
+  const { supabase, user } = await validateUser(false);
 
   const file = formData.get("file") as File;
   const fileExt = file.name.split(".").pop();
