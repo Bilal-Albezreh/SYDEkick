@@ -99,20 +99,43 @@ export async function getUpcomingTasks() {
   };
 }
 
-// 2. Log Session
-export async function logFocusSession(duration: number, objective: string, assessmentId?: string) {
+// 2. Start Session (Signals "I am working")
+export async function startFocusSession(duration: number, objective: string, assessmentId?: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return null;
 
-  await supabase.from("focus_sessions").insert({
+  const { data, error } = await supabase.from("focus_sessions").insert({
     user_id: user.id,
     duration_minutes: duration,
     objective_name: objective,
     linked_assessment_id: assessmentId,
-    is_completed: true
-  });
+    is_completed: false, // Currently Active
+    started_at: new Date().toISOString()
+  }).select("id").single();
 
+  if (error) {
+    console.error("Failed to start session:", error);
+    return null;
+  }
+  return data.id;
+}
+
+// 3. End Session (Finalizes "I am done")
+// Renamed from logFocusSession to better reflect the new flow
+export async function endFocusSession(sessionId: string, duration: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Update status to completed
+  await supabase.from("focus_sessions").update({
+    is_completed: true,
+    // Optional: Update duration if they stopped early? For now keep original duration or passed one.
+    // duration_minutes: duration 
+  }).eq("id", sessionId);
+
+  // Increment Leaderboard
   const { error } = await supabase.rpc('increment_focus_minutes', {
     user_id_input: user.id,
     minutes: duration
@@ -123,18 +146,18 @@ export async function logFocusSession(duration: number, objective: string, asses
   revalidatePath("/dashboard");
 }
 
-// 3. Mark Done
+// 4. Mark Assessment/Task Done (Unchanged)
 export async function completeAssessment(assessmentId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return; // Silent fail or throw
+  if (!user) return;
 
-  // Try marking as Assignment first (using correct table name)
+  // Try marking as Assignment first
   const { error } = await supabase
     .from("assessments")
     .update({ is_completed: true })
     .eq("id", assessmentId)
-    .eq("user_id", user.id); // [FIX] IDOR Protection
+    .eq("user_id", user.id);
 
   if (error) {
     // If error (or no rows), try marking as Career
@@ -142,7 +165,7 @@ export async function completeAssessment(assessmentId: string) {
       .from("interviews")
       .update({ status: "Done" })
       .eq("id", assessmentId)
-      .eq("user_id", user.id); // [FIX] IDOR Protection
+      .eq("user_id", user.id);
 
     if (interviewError) {
       // Finally check Personal Tasks
@@ -150,53 +173,10 @@ export async function completeAssessment(assessmentId: string) {
         .from("personal_tasks")
         .update({ is_completed: true })
         .eq("id", assessmentId)
-        .eq("user_id", user.id); // [FIX] IDOR Protection
+        .eq("user_id", user.id);
     }
   }
 
   revalidatePath("/dashboard");
 }
-// --- Add this to src/app/actions/focus.ts ---
-
-export async function getSquadStatus() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  // 1. Fetch all participating profiles (exclude self)
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url")
-    .neq("id", user.id) // Don't show myself
-    .eq("is_participating", true)
-    .limit(10); // Limit to close circle
-
-  if (!profiles) return [];
-
-  // 2. Check who is CURRENTLY working
-  // Logic: Find sessions started in the last 120 minutes that aren't 'completed' or just check recent activity
-  // For MVP: We will check if they logged a session in the last 30 minutes
-  const now = new Date();
-  const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
-
-  const { data: activeSessions } = await supabase
-    .from("focus_sessions")
-    .select("user_id, objective_name")
-    .gte("started_at", thirtyMinsAgo)
-    .order("started_at", { ascending: false });
-
-  // 3. Merge Data
-  const squad = profiles.map(p => {
-    const activeSession = activeSessions?.find(s => s.user_id === p.id);
-    return {
-      id: p.id,
-      name: p.full_name?.split(' ')[0] || "Friend", // First name only
-      avatar_url: p.avatar_url,
-      is_locked_in: !!activeSession,
-      current_task: activeSession?.objective_name || null
-    };
-  });
-
-  // Sort: Active users first
-  return squad.sort((a, b) => Number(b.is_locked_in) - Number(a.is_locked_in));
-}
+// [REMOVED] getSquadStatus function as per user request to remove Squad Widget

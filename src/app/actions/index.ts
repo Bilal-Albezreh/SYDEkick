@@ -79,11 +79,9 @@ export async function postMessage(content: string) {
   const { supabase, user } = await validateUser(true);
 
   // Auto-delete messages older than 48 hours
-  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-  await supabase
-    .from("messages")
-    .delete()
-    .lt("created_at", cutoff);
+  // We use an RPC call to bypass RLS restrictions (so User A can trigger deletion of User B's old messages)
+  const { error: cleanupError } = await supabase.rpc('cleanup_old_messages');
+  if (cleanupError) console.error("Cleanup warning:", cleanupError.message);
 
   // Insert new message
   const { error } = await supabase

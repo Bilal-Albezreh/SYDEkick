@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Play, Pause, RotateCcw, ArrowLeft, CheckCircle2, Laptop, BookOpen, X, Handshake, User } from "lucide-react"; // Added User icon
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { getUpcomingTasks, logFocusSession, completeAssessment, getSquadStatus } from "@/app/actions/focus"; // Added getSquadStatus
+import { getUpcomingTasks, startFocusSession, endFocusSession, completeAssessment } from "@/app/actions/focus"; // [UPDATED] Removed getSquadStatus
 
 export default function LockedInPage() {
     const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
@@ -23,7 +23,7 @@ export default function LockedInPage() {
 
     // Data State
     const [tasks, setTasks] = useState<{ assignments: any[], career: any[] }>({ assignments: [], career: [] });
-    const [squad, setSquad] = useState<any[]>([]); // [NEW] Real Squad State
+    // [REMOVED] Squad State
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -33,18 +33,13 @@ export default function LockedInPage() {
         long: { label: "Recharge", minutes: 15, color: "text-amber-400", border: "border-amber-500/30" },
     };
 
-    // 1. Load Data on Mount
+    const [sessionId, setSessionId] = useState<string | null>(null); // [NEW] Track active DB session
+
+    // 1. Load Tasks on Mount
     useEffect(() => {
         // Fetch Tasks
         getUpcomingTasks().then(data => setTasks(data));
-
-        // Fetch Squad & Poll every 60s
-        getSquadStatus().then(data => setSquad(data));
-        const interval = setInterval(() => {
-            getSquadStatus().then(data => setSquad(data));
-        }, 60000);
-
-        return () => clearInterval(interval);
+        // [REMOVED] Squad Polling
     }, []);
 
     // 2. Timer Logic (Optimized)
@@ -66,15 +61,40 @@ export default function LockedInPage() {
         }
 
         return () => clearInterval(interval);
-    }, [isActive]); // Removed timeLeft from dependency array to prevent jitter
+    }, [isActive]);
 
-    const toggleTimer = () => setIsActive(!isActive);
     const resetTimer = () => { setIsActive(false); setTimeLeft(MODES[mode].minutes * 60); };
     const switchMode = (m: "focus" | "short" | "long") => { setMode(m); setIsActive(false); setTimeLeft(MODES[m].minutes * 60); };
     const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
+    const toggleTimer = async () => {
+        const willBeActive = !isActive;
+        setIsActive(willBeActive);
+
+        if (willBeActive) {
+            // [NEW] Start Session on DB
+            try {
+                const id = await startFocusSession(MODES[mode].minutes, objective || "Locked In", linkedId || undefined);
+                setSessionId(id);
+            } catch (e) { console.error(e); }
+        } else {
+            // Paused? For now we just leave the DB session running or we could mark it paused. 
+            // MVP: Just leave it. Logic checks time anyway.
+        }
+    };
+
+    // ...
+
     const handleSessionComplete = async () => {
-        await logFocusSession(MODES[mode].minutes, objective, linkedId || undefined);
+        // [NEW] End Session on DB
+        if (sessionId) {
+            await endFocusSession(sessionId, MODES[mode].minutes);
+            setSessionId(null);
+        } else {
+            // Fallback if session failed to start? Just log it? 
+            // For now assume sessionId exists if flow worked.
+        }
+
         if (linkedId) {
             setShowCompletionModal(true);
         }
@@ -84,6 +104,7 @@ export default function LockedInPage() {
     const finalizeTask = async () => {
         if (linkedId) await completeAssessment(linkedId);
         setShowCompletionModal(false);
+        // ...
         setIsObjectiveLocked(false);
         setObjective("");
         setLinkedId(null);
@@ -158,60 +179,16 @@ export default function LockedInPage() {
                 </div>
             </div>
 
-            {/* --- REAL SQUAD WIDGET (UPDATED) --- */}
-            <div className="relative z-20 w-full p-8 shrink-0">
-                <div className="max-w-6xl mx-auto flex items-end justify-between">
-
-                    {/* Left: Your Status (THE GLOWING CIRCLE) */}
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                            {/* The Green Dot with Shadow/Glow */}
-                            <div className={cn(
-                                "w-2 h-2 rounded-full shadow-[0_0_10px_currentColor] transition-colors duration-500",
-                                isActive ? "bg-green-400 text-green-400" : "bg-white/50 text-white"
-                            )} />
-                            <span className="text-xs font-bold uppercase tracking-widest text-white/80 drop-shadow-md">
-                                {isActive ? "Status: Locked In" : "Status: Standing By"}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Right: The Squad (Real Data) */}
-                    <div className="flex items-center gap-4">
-                        {squad.length > 0 ? (
-                            <div className="flex items-center -space-x-3">
-                                {squad.map((friend) => (
-                                    <div key={friend.id} className="relative group cursor-pointer transition-transform hover:-translate-y-2 hover:scale-110 hover:z-20">
-                                        {/* Avatar Container */}
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-full border-2 flex items-center justify-center overflow-hidden bg-black",
-                                            friend.is_locked_in ? "border-green-500 shadow-[0_0_10px_rgba(74,222,128,0.5)]" : "border-white/10"
-                                        )}>
-                                            {friend.avatar_url ? (
-                                                <img src={friend.avatar_url} alt={friend.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <User className="w-5 h-5 text-gray-500" />
-                                            )}
-                                        </div>
-
-                                        {/* Tooltip */}
-                                        <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 flex flex-col items-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none min-w-[100px]">
-                                            <div className="bg-black/90 backdrop-blur border border-white/20 px-3 py-2 rounded-lg text-center shadow-xl">
-                                                <div className="text-[10px] font-bold text-white uppercase">{friend.name}</div>
-                                                <div className={cn("text-[9px] font-medium mt-0.5", friend.is_locked_in ? "text-green-400" : "text-gray-500")}>
-                                                    {friend.is_locked_in ? (friend.current_task || "Locked In") : "Offline"}
-                                                </div>
-                                            </div>
-                                            {/* Arrow */}
-                                            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white/20 -mt-[1px]" />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <span className="text-[10px] text-white/30 uppercase tracking-widest">No Active Squad</span>
-                        )}
-                    </div>
+            {/* --- STATUS INDICATOR (Simplified) --- */}
+            <div className="relative z-20 w-full p-8 shrink-0 flex justify-center">
+                <div className="flex items-center gap-2 bg-black/40 backdrop-blur rounded-full px-4 py-2 border border-white/10">
+                    <div className={cn(
+                        "w-2 h-2 rounded-full shadow-[0_0_10px_currentColor] transition-colors duration-500",
+                        isActive ? "bg-green-400 text-green-400" : "bg-white/50 text-white"
+                    )} />
+                    <span className="text-xs font-bold uppercase tracking-widest text-white/80">
+                        {isActive ? "System Status: Locked In" : "System Status: Standby"}
+                    </span>
                 </div>
             </div>
 

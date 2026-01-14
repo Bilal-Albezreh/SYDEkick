@@ -438,6 +438,14 @@ export function ChatWidget({
         </div>
       </div>
 
+      {/* Retention Notice (Sticky) */}
+      <div className="bg-[#1e1e1e] border-b border-gray-800 py-1 flex justify-center shadow-md z-10 shrink-0">
+        <span className="text-[9px] font-medium text-gray-500 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-orange-500/50 rounded-full" />
+          Messages deleted after 48h.
+        </span>
+      </div>
+
       {/* MESSAGES AREA */}
       <div
         ref={scrollRef}
