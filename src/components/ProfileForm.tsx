@@ -36,17 +36,70 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loadingPassword, setLoadingPassword] = useState(false);
 
+  // --- NEW: NATIVE IMAGE SCALING HELPER ---
+  // This function takes the raw file, redraws it on a small canvas, and returns a small Blob
+  const scaleImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 400; // Limit to 400px (Plenty for an avatar)
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
 
-  // --- HANDLERS (Unchanged logic) ---
+          // Calculate new dimensions while maintaining aspect ratio
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Convert to JPEG at 80% quality (Massive size reduction)
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Image compression failed"));
+          }, "image/jpeg", 0.8);
+        };
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // --- HANDLERS ---
+
+  // [UPDATED] Now scales image before upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
-    const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-
     setUploading(true);
     try {
+        const originalFile = e.target.files[0];
+        
+        // 1. Client-Side Compression
+        const optimizedBlob = await scaleImage(originalFile);
+        
+        // 2. Prepare FormData with the smaller blob
+        const formData = new FormData();
+        // We force the name to .jpg because we converted it to JPEG above
+        formData.append("file", optimizedBlob, "avatar.jpg");
+
+        // 3. Upload
         const { publicUrl } = await uploadAvatar(formData);
         if (publicUrl) {
             setAvatarUrl(publicUrl); 
@@ -110,9 +163,9 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
     }
   };
 
-  // --- RENDER ---
+  // --- RENDER (EXACT SAME AS BEFORE) ---
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-10">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto">
       
       {/* LEFT COLUMN: IDENTITY & PRIVACY */}
       <div className="space-y-6">
@@ -250,7 +303,7 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
 
       {/* RIGHT COLUMN: SECURITY */}
       <div className="space-y-6">
-         <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 h-full">
+         <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 h-fit">
             <div className="flex items-center gap-2 mb-6">
                 <Lock className="w-5 h-5 text-red-500" />
                 <h2 className="text-lg font-bold text-white">Security & Login</h2>
