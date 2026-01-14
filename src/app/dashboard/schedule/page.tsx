@@ -63,7 +63,7 @@ const fixedClasses: ClassEvent[] = [
 const labOptions = [
   { label: "Monday Morning (8:30 AM)", day: "Mon", start: "08:30", end: "11:20" },
   { label: "Wednesday Morning (8:30 AM)", day: "Wed", start: "08:30", end: "11:20" },
-  { label: "Wednesday Afternoon (2:30 PM)", day: "Wed", start: "14:30", end: "17:20" },
+  { label: "Wednesday Afternoon (1:30 PM)", day: "Wed", start: "13:30", end: "16:20" },
   { label: "Friday Morning (8:30 AM)", day: "Fri", start: "08:30", end: "11:20" },
 ];
 

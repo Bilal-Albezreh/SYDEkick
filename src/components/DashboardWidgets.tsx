@@ -14,10 +14,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // --- WIDGET 1: DAILY QUOTE ---
 export function QuoteWidget() {
   const quotes = [
-    "The only way to do great work is to love what you do.",
-    "Systems thinking is a discipline for seeing wholes.",
+    "If you have 0 on one side and you are trying to prove both sides are equal to each other, the best way to do so is multiply the other side by 0 - Omar Soliman",
+    "Lets stop being like Dora",
     "Engineering is the closest thing to magic that exists in the world.",
-    "Ooooooooooooooh Chriiiiiiiiiiiiiis.",
+    "Ooooooooooooooh Chriiiiiiiiiiiiiis - Raed Rahman",
     "Innovation distinguishes between a leader and a follower.",
     "Simplicity is the ultimate sophistication."
   ];
@@ -112,37 +112,78 @@ export function CountdownWidget() {
   );
 }
 
-// --- WIDGET 3: UPCOMING DEADLINES ---
+// --- WIDGET 3: UPCOMING DEADLINES (NEXT 7 DAYS + URGENCY COLORS) ---
 export function UpcomingWidget({ data }: { data: any[] }) {
-  // Sort by due date
-  const sorted = [...data].sort((a,b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5);
+  const today = new Date();
+  const nextWeek = new Date();
+  nextWeek.setDate(today.getDate() + 7);
+
+  // 1. Filter: Future dates ONLY within the next 7 days
+  // 2. Sort: Closest date first
+  const sorted = [...data]
+    .filter(item => {
+      const d = new Date(item.due_date);
+      return d >= startOfDay(today) && d <= nextWeek;
+    })
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+    .slice(0, 5); // Limit to 5 to fit UI
+
+  // Helper to determine color based on days remaining
+  const getUrgencyStyles = (dueDate: string) => {
+    const daysLeft = differenceInCalendarDays(new Date(dueDate), today);
+    
+    if (daysLeft <= 0) return "bg-red-500/20 text-red-400 border-red-500/50 animate-pulse"; // Due Today
+    if (daysLeft === 1) return "bg-orange-500/20 text-orange-400 border-orange-500/50"; // Due Tomorrow
+    if (daysLeft <= 3) return "bg-yellow-500/20 text-yellow-400 border-yellow-500/50"; // Upcoming
+    return "bg-gray-800 text-gray-400 border-gray-700"; // Safe (4-7 days)
+  };
 
   return (
     <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 h-full">
-      <div className="flex items-center gap-2 text-gray-500 mb-4">
-        <CalendarDays className="w-4 h-4" />
-        <span className="text-xs font-bold uppercase tracking-widest">Upcoming</span>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 text-gray-500">
+          <CalendarDays className="w-4 h-4" />
+          <span className="text-xs font-bold uppercase tracking-widest">Next 7 Days</span>
+        </div>
+        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-gray-400 font-mono">
+           {sorted.length} Due
+        </span>
       </div>
       
       <div className="space-y-3">
         {sorted && sorted.length > 0 ? (
-          sorted.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors">
-              <div 
-                className="w-1 h-8 rounded-full shrink-0" 
-                style={{ backgroundColor: item.courses?.color || "#555" }} 
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-gray-200 truncate">{item.name}</div>
-                <div className="text-xs text-gray-500">{item.courses?.course_code}</div>
-              </div>
-              <div className="text-xs font-mono text-gray-400 whitespace-nowrap bg-black/30 px-2 py-1 rounded">
-                {format(new Date(item.due_date), "MMM d")}
-              </div>
-            </div>
-          ))
+          sorted.map((item) => {
+            const urgencyClass = getUrgencyStyles(item.due_date);
+            
+            return (
+                <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors group">
+                  {/* Color Strip */}
+                  <div 
+                    className="w-1 h-8 rounded-full shrink-0 group-hover:scale-110 transition-transform" 
+                    style={{ backgroundColor: item.courses?.color || "#555" }} 
+                  />
+                  
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-gray-200 truncate">{item.name}</div>
+                    <div className="text-xs text-gray-500">{item.courses?.course_code}</div>
+                  </div>
+                  
+                  {/* Dynamic Date Box */}
+                  <div className={cn(
+                      "text-xs font-mono whitespace-nowrap px-2.5 py-1 rounded border min-w-[60px] text-center font-bold",
+                      urgencyClass
+                  )}>
+                    {format(new Date(item.due_date), "MMM d")}
+                  </div>
+                </div>
+            );
+          })
         ) : (
-          <div className="text-sm text-gray-600 italic py-4">No imminent deadlines.</div>
+          <div className="flex flex-col items-center justify-center h-24 text-gray-600 italic gap-2 opacity-60">
+             <CalendarDays className="w-6 h-6 mb-1" />
+             <span className="text-xs">Nothing due this week.</span>
+          </div>
         )}
       </div>
     </div>
