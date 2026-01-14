@@ -187,24 +187,28 @@ export async function getLeaderboardData() {
 
   // F. Generate Radar Data
   const radarData = Array.from(courseStats.keys()).map(subject => {
-     const userMap = courseStats.get(subject);
-     let totalClassAvg = 0;
-     let count = 0;
-     let myScore = 0;
+      const userMap = courseStats.get(subject);
+      let totalClassAvg = 0;
+      let count = 0;
+      let myScore = 0;
 
-     userMap.forEach((stats: any, uid: string) => {
-       const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
-       totalClassAvg += avg;
-       count++;
-       if (uid === user.id) myScore = avg;
-     });
+      userMap.forEach((stats: any, uid: string) => {
+        const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
+        totalClassAvg += avg;
+        count++;
+        if (uid === user.id) myScore = avg;
+      });
 
-     return {
-       subject,
-       A: myScore, 
-       B: count === 0 ? 0 : totalClassAvg / count, 
-       fullMark: 100
-     };
+      // Calculate Class Average
+      const rawClassAvg = count === 0 ? 0 : totalClassAvg / count;
+
+      return {
+        subject,
+        // [FIX] Apply 2-decimal rounding to both values
+        A: parseFloat(myScore.toFixed(2)), 
+        B: parseFloat(rawClassAvg.toFixed(2)), 
+        fullMark: 100
+      };
   });
 
   return { rankings, radarData, specialists };

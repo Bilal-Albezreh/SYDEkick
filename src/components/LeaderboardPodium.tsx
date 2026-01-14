@@ -12,8 +12,10 @@ interface Ranking {
   rank: number;
 }
 
+// [NEW] Helper: Rounds to 2 decimals, removes trailing zeros
+const formatGrade = (val: number) => parseFloat(val.toFixed(2));
+
 export default function LeaderboardPodium({ topThree, currentUserId }: { topThree: Ranking[], currentUserId: string }) {
-  // We expect exactly 3 items, but handle fewer just in case
   const first = topThree.find(u => u.rank === 1);
   const second = topThree.find(u => u.rank === 2);
   const third = topThree.find(u => u.rank === 3);
@@ -24,7 +26,6 @@ export default function LeaderboardPodium({ topThree, currentUserId }: { topThre
     
     return (
       <div className="flex flex-col items-center justify-end w-1/3">
-        {/* Avatar / Name */}
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -43,12 +44,12 @@ export default function LeaderboardPodium({ topThree, currentUserId }: { topThre
           <span className={cn("text-xs font-bold truncate max-w-[80px]", isMe ? "text-white" : "text-gray-300")}>
              {isMe ? "You" : (user.is_anonymous ? "Anonymous" : user.full_name.split(' ')[0])}
           </span>
+          {/* [UPDATED] Use formatGrade here */}
           <span className={cn("text-xs font-mono font-bold", color)}>
-             {user.current_average.toFixed(1)}%
+             {formatGrade(user.current_average)}%
           </span>
         </motion.div>
 
-        {/* The Box */}
         <motion.div
            initial={{ height: 0 }}
            animate={{ height: height }}
