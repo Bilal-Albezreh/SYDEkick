@@ -18,7 +18,7 @@ export async function getUpcomingTasks() {
   // --- A. Fetch Academic Assignments ---
   // [FIX] Table name is 'assessments' based on your screenshot
   const { data: assignments, error: assignmentError } = await supabase
-    .from("assessments") 
+    .from("assessments")
     .select(`
       id, 
       name, 
@@ -31,40 +31,71 @@ export async function getUpcomingTasks() {
       )
     `)
     .eq("user_id", user.id) // [RESTORED] Personal data filter
-    .or("is_completed.eq.false,is_completed.is.null") 
+    .or("is_completed.eq.false,is_completed.is.null")
     .gte("due_date", today.toISOString())
     .lte("due_date", futureWindow.toISOString())
     .order("due_date", { ascending: true });
 
   if (assignmentError) {
-      console.error("❌ Error fetching assignments:", assignmentError.message);
+    console.error("❌ Error fetching assignments:", assignmentError.message);
   }
 
   // Flatten the structure for the UI
   const formattedAssignments = assignments?.map((a: any) => ({
-      ...a,
-      course_code: a.courses?.course_code || "General",
-      color: a.courses?.color || "#555"
+    ...a,
+    course_code: a.courses?.course_code || "General",
+    color: a.courses?.color || "#555"
   })) || [];
 
   // --- B. Fetch Career (OAs AND Interviews) ---
   const { data: career, error: careerError } = await supabase
     .from("interviews")
-    .select("id, role_title, company_name, interview_date, type") 
+    .select("id, role_title, company_name, interview_date, type")
     .eq("user_id", user.id)
-    .in("type", ["oa", "interview"]) 
+    .in("type", ["oa", "interview"])
     .neq("status", "Done")
     .gte("interview_date", today.toISOString())
     .lte("interview_date", futureWindow.toISOString())
     .order("interview_date", { ascending: true });
 
   if (careerError) {
-      console.error("❌ Error fetching career items:", careerError.message);
+    console.error("❌ Error fetching career items:", careerError.message);
   }
 
+  // --- C. Fetch Personal Tasks [NEW] ---
+  const { data: personalTasks } = await supabase
+    .from("personal_tasks")
+    .select(`
+        id, title, due_date, type, description, is_completed, 
+        courses (course_code, color)
+    `)
+    .eq("user_id", user.id)
+    .eq("is_completed", false)
+    .gte("due_date", today.toISOString())
+    .lte("due_date", futureWindow.toISOString()) // Matches the 2-week window
+    .order("due_date", { ascending: true });
+
+  // Map to unified format for UI
+  const formatPersonal = personalTasks?.map((t: any) => ({
+    id: t.id,
+    name: t.title,
+    due_date: t.due_date,
+    weight: 0, // No weight for personal tasks
+    is_completed: t.is_completed,
+    course_code: t.type === 'course_work' ? t.courses?.course_code : 'Personal',
+    color: t.type === 'course_work' ? t.courses?.color : '#888888',
+    type: 'personal_task',
+    description: t.description
+  })) || [];
+
+  // Merge Assignments and Personal Tasks for the main list
+  const combinedAssignments = [...formattedAssignments, ...formatPersonal].sort((a, b) =>
+    new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+  );
+
   return {
-    assignments: formattedAssignments,
-    career: career || [] 
+    assignments: combinedAssignments,
+    career: career || []
   };
 }
 
@@ -82,11 +113,11 @@ export async function logFocusSession(duration: number, objective: string, asses
     is_completed: true
   });
 
-  const { error } = await supabase.rpc('increment_focus_minutes', { 
-    user_id_input: user.id, 
-    minutes: duration 
+  const { error } = await supabase.rpc('increment_focus_minutes', {
+    user_id_input: user.id,
+    minutes: duration
   });
-  
+
   if (error) console.error("❌ Leaderboard update failed:", error.message);
 
   revalidatePath("/dashboard");
@@ -94,23 +125,36 @@ export async function logFocusSession(duration: number, objective: string, asses
 
 // 3. Mark Done
 export async function completeAssessment(assessmentId: string) {
-   const supabase = await createClient();
-   
-   // Try marking as Assignment first (using correct table name)
-   const { error } = await supabase
-     .from("assessments") // [FIX] Updated here too
-     .update({ is_completed: true })
-     .eq("id", assessmentId);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return; // Silent fail or throw
 
-   if (error) {
-     // If error (or no rows), try marking as Career
-     await supabase
-        .from("interviews")
-        .update({ status: "Done" })
-        .eq("id", assessmentId);
-   }
-   
-   revalidatePath("/dashboard");
+  // Try marking as Assignment first (using correct table name)
+  const { error } = await supabase
+    .from("assessments")
+    .update({ is_completed: true })
+    .eq("id", assessmentId)
+    .eq("user_id", user.id); // [FIX] IDOR Protection
+
+  if (error) {
+    // If error (or no rows), try marking as Career
+    const { error: interviewError } = await supabase
+      .from("interviews")
+      .update({ status: "Done" })
+      .eq("id", assessmentId)
+      .eq("user_id", user.id); // [FIX] IDOR Protection
+
+    if (interviewError) {
+      // Finally check Personal Tasks
+      await supabase
+        .from("personal_tasks")
+        .update({ is_completed: true })
+        .eq("id", assessmentId)
+        .eq("user_id", user.id); // [FIX] IDOR Protection
+    }
+  }
+
+  revalidatePath("/dashboard");
 }
 // --- Add this to src/app/actions/focus.ts ---
 

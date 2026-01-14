@@ -5,7 +5,7 @@ import DashboardGrid from "@/components/DashboardWidgets";
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) {
     redirect("/login");
   }
@@ -18,6 +18,31 @@ export default async function DashboardPage() {
       assessments (id, name, weight, score, due_date, is_completed)
     `)
     .eq("user_id", user.id);
+
+  // 1b. Fetch Personal Tasks [NEW]
+  const { data: personalTasks } = await supabase
+    .from("personal_tasks")
+    .select("id, title, due_date, is_completed, type, description")
+    .eq("user_id", user.id)
+    .eq("is_completed", false); // Only active ones for the dashboard
+
+  // Merge into a "Personal" course bucket for the widget
+  const personalCourse = {
+    id: "personal",
+    course_code: "Personal",
+    course_name: "Personal Tasks",
+    color: "#888888",
+    assessments: personalTasks?.map(t => ({
+      id: t.id,
+      name: t.title,
+      weight: 0,
+      score: null,
+      due_date: t.due_date,
+      is_completed: t.is_completed
+    })) || []
+  };
+
+  const allCourses = [...(courses || []), personalCourse];
 
   // 2. Fetch Chat Messages (Recent 50)
   const { data: messages } = await supabase
@@ -32,7 +57,7 @@ export default async function DashboardPage() {
   // 3. Leaderboard Logic
   const { data: allProfiles } = await supabase
     .from("profiles")
-    .select("id, full_name, is_anonymous")
+    .select("id, full_name, is_anonymous, avatar_url") // [FIX] Fetch avatar_url
     .eq("is_participating", true);
 
   const { data: allAssessments } = await supabase
@@ -58,6 +83,7 @@ export default async function DashboardPage() {
         current_average: avg,
         full_name: profile.full_name || "Unknown",
         is_anonymous: profile.is_anonymous || false,
+        avatar_url: profile.avatar_url, // [FIX] Pass it through
       };
     })
     .filter((u) => u !== null)
@@ -66,7 +92,7 @@ export default async function DashboardPage() {
   const myIndex = rankedUsers.findIndex((u) => u?.user_id === user.id);
   const myRankData = myIndex !== -1 && rankedUsers[myIndex] ? {
     rank: myIndex + 1,
-    trend: 0, 
+    trend: 0,
     current_average: rankedUsers[myIndex]!.current_average,
     totalStudents: rankedUsers.length,
     gap: myIndex > 0 ? (rankedUsers[myIndex - 1]!.current_average - rankedUsers[myIndex]!.current_average) : 0,
@@ -94,11 +120,11 @@ export default async function DashboardPage() {
         <p className="text-gray-500">Welcome back, {currentUser.name.split(' ')[0]}.</p>
       </div>
 
-      <DashboardGrid 
-          courses={courses || []} 
-          messages={messages || []}
-          rankData={{ myRank: myRankData, topRank: rankedUsers as any }}
-          currentUser={currentUser}
+      <DashboardGrid
+        courses={allCourses}
+        messages={messages || []}
+        rankData={{ myRank: myRankData, topRank: rankedUsers as any }}
+        currentUser={currentUser}
       />
     </div>
   );

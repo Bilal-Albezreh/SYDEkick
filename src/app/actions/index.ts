@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 async function validateUser(requireApproval = true) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) throw new Error("Unauthorized");
 
   if (requireApproval) {
@@ -31,7 +31,7 @@ async function validateUser(requireApproval = true) {
 
 export async function updateAssessmentScore(assessmentId: string, score: number | null) {
   // SAFETY 1: Enforce Approval
-  const { supabase } = await validateUser(true);
+  const { supabase, user } = await validateUser(true);
 
   // SAFETY 2: Input Validation
   if (score !== null) {
@@ -43,11 +43,12 @@ export async function updateAssessmentScore(assessmentId: string, score: number 
   // LOGIC: If a score is set, mark as completed. If cleared, unmark.
   const { error } = await supabase
     .from("assessments")
-    .update({ 
+    .update({
       score: score,
-      is_completed: score !== null 
+      is_completed: score !== null
     })
-    .eq("id", assessmentId);
+    .eq("id", assessmentId)
+    .eq("user_id", user.id); // [FIX] IDOR Protection
 
   if (error) {
     console.error("Error updating score:", error);
@@ -60,13 +61,14 @@ export async function updateAssessmentScore(assessmentId: string, score: number 
 // Needed for Calendar Checkboxes
 export async function toggleAssessmentCompletion(assessmentId: string, isCompleted: boolean) {
   // SAFETY: Enforce Approval
-  const { supabase } = await validateUser(true);
+  const { supabase, user } = await validateUser(true);
 
   await supabase
     .from("assessments")
     .update({ is_completed: isCompleted })
-    .eq("id", assessmentId);
-    
+    .eq("id", assessmentId)
+    .eq("user_id", user.id); // [FIX] IDOR Protection
+
   revalidatePath("/dashboard/calendar");
 }
 
@@ -133,7 +135,7 @@ export async function getLeaderboardData() {
     const code = a.courses.course_code;
     if (!courseStats.has(code)) courseStats.set(code, new Map());
     const courseMap = courseStats.get(code);
-    
+
     if (!courseMap.has(a.user_id)) courseMap.set(a.user_id, { earned: 0, attempted: 0 });
     const cUser = courseMap.get(a.user_id);
     cUser.earned += (a.score / 100) * a.weight;
@@ -144,9 +146,9 @@ export async function getLeaderboardData() {
   let rankings = profiles?.map(p => {
     const stats = userStats.get(p.id) || { earned: 0, attempted: 0 };
     const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
-    
+
     const isMe = p.id === user.id;
-    
+
     return {
       user_id: p.id,
       full_name: (p.is_anonymous && !isMe) ? "Anonymous User" : p.full_name,
@@ -154,60 +156,61 @@ export async function getLeaderboardData() {
       is_anonymous: p.is_anonymous,
       current_average: avg,
       weekly_focus_minutes: p.weekly_focus_minutes || 0, // <--- ADDED HERE (Default to 0 if null)
-      trend: 0 
+      trend: 0
     };
   })
-  .filter(u => u.current_average > 0) // Keep users with grades
-  .sort((a, b) => b.current_average - a.current_average)
-  .map((u, i) => ({ ...u, rank: i + 1 })) || [];
+    .filter(u => u.current_average > 0) // Keep users with grades
+    .sort((a, b) => b.current_average - a.current_average)
+    .map((u, i) => ({ ...u, rank: i + 1 })) || [];
 
   // E. Generate Specialists (Unchanged)
   const specialists = Array.from(courseStats.entries()).map(([subject, userMap]: [string, any]) => {
     let bestScore = -1;
     let holderId = "";
-    
+
     userMap.forEach((stats: any, uid: string) => {
-       const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
-       if (avg > bestScore) {
-         bestScore = avg;
-         holderId = uid;
-       }
+      const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
+      if (avg > bestScore) {
+        bestScore = avg;
+        holderId = uid;
+      }
     });
 
     const holderProfile = profiles?.find(p => p.id === holderId);
     const isMe = holderId === user.id;
+    const isAnon = holderProfile?.is_anonymous;
 
     return {
       subject,
       best_score: bestScore,
       holder_id: holderId,
-      holder_name: (holderProfile?.is_anonymous && !isMe) ? "Anonymous" : (holderProfile?.full_name?.split(' ')[0] || "Unknown"),
-      avatar_url: holderProfile?.avatar_url
+      holder_name: (isAnon && !isMe) ? "Anonymous" : (holderProfile?.full_name?.split(' ')[0] || "Unknown"),
+      avatar_url: (isAnon && !isMe) ? null : holderProfile?.avatar_url // [FIX] Privacy Leak
     };
   });
 
   // F. Generate Radar Data (Unchanged)
   const radarData = Array.from(courseStats.keys()).map(subject => {
-      const userMap = courseStats.get(subject);
-      let totalClassAvg = 0;
-      let count = 0;
-      let myScore = 0;
+    const userMap = courseStats.get(subject);
+    let totalClassAvg = 0;
+    let count = 0;
+    let myScore = 0;
 
-      userMap.forEach((stats: any, uid: string) => {
-        const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
-        totalClassAvg += avg;
-        count++;
-        if (uid === user.id) myScore = avg;
-      });
+    userMap.forEach((stats: any, uid: string) => {
+      const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
+      totalClassAvg += avg;
+      count++;
+      if (uid === user.id) myScore = avg;
+    });
 
-      const rawClassAvg = count === 0 ? 0 : totalClassAvg / count;
+    const rawClassAvg = count === 0 ? 0 : totalClassAvg / count;
 
-      return {
-        subject,
-        A: parseFloat(myScore.toFixed(2)), 
-        B: parseFloat(rawClassAvg.toFixed(2)), 
-        fullMark: 100
-      };
+    return {
+      subject,
+      A: parseFloat(myScore.toFixed(2)),
+      B: parseFloat(rawClassAvg.toFixed(2)),
+      fullMark: 100
+    };
   });
 
   return { rankings, radarData, specialists };
@@ -223,14 +226,14 @@ export async function updateProfile(fullName: string) {
     .from("profiles")
     .update({ full_name: fullName })
     .eq("id", user.id);
-    
+
   revalidatePath("/dashboard/profile");
 }
 
 export async function updateUserPassword(password: string) {
   // SAFETY: Allow unapproved users to change password (pass false)
   const { supabase } = await validateUser(false);
-  
+
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw new Error(error.message);
 }
@@ -243,7 +246,7 @@ export async function togglePrivacy(isAnonymous: boolean) {
     .from("profiles")
     .update({ is_anonymous: isAnonymous })
     .eq("id", user.id);
-  
+
   revalidatePath("/dashboard/profile");
   revalidatePath("/dashboard/leaderboard");
 }
@@ -256,7 +259,7 @@ export async function toggleParticipation(isParticipating: boolean) {
     .from("profiles")
     .update({ is_participating: isParticipating })
     .eq("id", user.id);
-    
+
   revalidatePath("/dashboard/profile");
   revalidatePath("/dashboard/leaderboard");
 }
@@ -271,7 +274,7 @@ export async function uploadAvatar(formData: FormData) {
 
   // Upload to Supabase Storage
   const { error: uploadError } = await supabase.storage
-    .from("avatars") 
+    .from("avatars")
     .upload(filePath, file);
 
   if (uploadError) throw new Error("Upload failed");

@@ -25,15 +25,22 @@ export default async function CalendarPage() {
     .select("*")
     .eq("user_id", user.id);
 
+  // 3. Fetch Personal Tasks [NEW]
+  const { data: personalTasks } = await supabase
+    .from("personal_tasks")
+    .select("*")
+    .eq("user_id", user.id);
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-       <div className="flex-1 min-h-0">
-          {/* 3. Pass both to the Component */}
-          <Calendar 
-            initialData={courses || []} 
-            initialInterviews={interviews || []} 
-          />
-       </div>
+      <div className="flex-1 min-h-0">
+        {/* 3. Pass both to the Component */}
+        <Calendar
+          initialData={courses || []}
+          initialInterviews={interviews || []}
+          initialPersonalTasks={personalTasks || []}
+        />
+      </div>
     </div>
   );
 }
