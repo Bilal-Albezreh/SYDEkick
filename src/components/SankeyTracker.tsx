@@ -9,35 +9,37 @@ interface CareerStats {
   pending_count: number;
   rejected_count: number;
   ghosted_count: number;
+  oa_count: number; // NEW
   interview_count: number;
   offer_count: number;
   no_offer_count: number;
 }
 
-// Cubic Bezier Generator
 const getRibbonPath = (x1: number, y1Top: number, y1Bot: number, x2: number, y2Top: number, y2Bot: number) => {
-  const tension = 0.5; // Relaxed tension for smoother flow
+  const tension = 0.5;
   const midX = x1 + (x2 - x1) * tension;
   return `M ${x1},${y1Top} C ${midX},${y1Top} ${midX},${y2Top} ${x2},${y2Top} L ${x2},${y2Bot} C ${midX},${y2Bot} ${midX},${y1Bot} ${x1},${y1Bot} Z`;
 };
 
 export default function SankeyTracker({ stats }: { stats: CareerStats | null }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"interview" | "oa" | null>(null);
 
   // 1. Data Parsing
   const pending = Number(stats?.pending_count || 0);
   const rejected = Number(stats?.rejected_count || 0);
   const ghosted = Number(stats?.ghosted_count || 0);
+  const oa = Number(stats?.oa_count || 0);
   const interviews = Number(stats?.interview_count || 0);
   const offers = Number(stats?.offer_count || 0);
   const noOffers = Number(stats?.no_offer_count || 0);
 
-  // 2. Strict Summation (Visual Safety)
+  // 2. Totals
   const totalOutcomes = offers + noOffers;
   const activeInterviews = Math.max(interviews - totalOutcomes, 0); 
   const visualInterviewTotal = offers + noOffers + activeInterviews;
   
-  const totalApps = pending + rejected + ghosted + visualInterviewTotal;
+  // Note: We use this for scaling, but we force min-heights later
+  const totalApps = pending + rejected + ghosted + oa + visualInterviewTotal;
 
   // 3. Layout Dimensions
   const CANVAS_HEIGHT = 600; 
@@ -45,71 +47,80 @@ export default function SankeyTracker({ stats }: { stats: CareerStats | null }) 
   
   const TOP_MARGIN = 40;
   const BOTTOM_MARGIN = 40;
-  const GAP = 50; 
+  const GAP = 45; 
 
-  // 4. Dynamic Scaling
+  // 4. Dynamic Scaling (Restored Skeleton Logic)
   const availableHeight = CANVAS_HEIGHT - (TOP_MARGIN + BOTTOM_MARGIN + (GAP * 4));
   const scale = totalApps > 0 ? availableHeight / totalApps : 0;
-  const MIN_THICKNESS = 12; // Thicker minimum for visibility
+  const MIN_THICKNESS = 12; // Bars will ALWAYS be at least this thick
 
+  // FIX: Allow 0 count to still return MIN_THICKNESS (The Skeleton)
   const getHeight = (count: number) => Math.max(count * scale, MIN_THICKNESS);
 
   const hRejected = getHeight(rejected);
   const hGhosted = getHeight(ghosted);
+  const hOA = getHeight(oa); 
   const hPending = getHeight(pending);
   
-  // Sub-Heights (Summing exactly to match Parent)
+  // For Interviews, we sum the parts to ensure alignment
   const hOffer = getHeight(offers);
   const hNoOffer = getHeight(noOffers);
   const hActiveInt = getHeight(activeInterviews);
   const hInterviewTotal = hOffer + hNoOffer + hActiveInt;
 
-  // 5. ZONE STACKING ENGINE
+  // 5. EXPLICIT STACKING ENGINE
+  
+  // Calculate total stack height to center it
+  const totalLeftHeight = hRejected + hGhosted + hOA + hInterviewTotal + hPending;
+  const startLeftY = (CANVAS_HEIGHT - totalLeftHeight) / 2;
 
-  // --- LEFT SIDE (Source Stack) ---
-  const totalLeftHeight = hRejected + hGhosted + hInterviewTotal + hPending;
-  let currentLeftY = (CANVAS_HEIGHT - totalLeftHeight) / 2;
+  // Manually calculate Y for every bar (Top to Bottom)
+  const yReject = startLeftY;
+  const yGhost = yReject + hRejected;
+  const yOA = yGhost + hGhosted; // Insert OA here
+  const yInter = yOA + hOA;
+  const yPend = yInter + hInterviewTotal;
 
   const src = {
-    rejected: { top: currentLeftY, bot: currentLeftY + hRejected },
-    ghosted: { top: currentLeftY + hRejected, bot: currentLeftY + hRejected + hGhosted },
-    interview: { top: currentLeftY + hRejected + hGhosted, bot: currentLeftY + hRejected + hGhosted + hInterviewTotal },
-    pending: { top: currentLeftY + hRejected + hGhosted + hInterviewTotal, bot: currentLeftY + hRejected + hGhosted + hInterviewTotal + hPending },
+    rejected: { top: yReject, bot: yReject + hRejected },
+    ghosted:  { top: yGhost, bot: yGhost + hGhosted },
+    oa:       { top: yOA, bot: yOA + hOA },
+    interview:{ top: yInter, bot: yInter + hInterviewTotal },
+    pending:  { top: yPend, bot: yPend + hPending },
   };
 
-  // --- RIGHT SIDE (Destination Zones) ---
+  // Right Side Anchors
   const dstRejected_Top = TOP_MARGIN;
   const dstGhosted_Top = dstRejected_Top + hRejected + GAP;
+  const dstOA_Top = dstGhosted_Top + hGhosted + GAP; // OA below Ghosted
   const dstPending_Top = CANVAS_HEIGHT - BOTTOM_MARGIN - hPending;
 
-  // Middle Zone Calculation
-  const zoneTopEnd = dstGhosted_Top + hGhosted + GAP;
+  // Center Float Logic
+  const zoneTopEnd = dstOA_Top + hOA + GAP; 
   const zoneBottomStart = dstPending_Top - GAP;
   const middleCenter = (zoneTopEnd + zoneBottomStart) / 2;
   const dstInterview_Top = middleCenter - (hInterviewTotal / 2);
 
-  // --- SUB-BRANCH CALCULATIONS ---
-  // Start Points (Relative to the Interview Hub)
+  // Sub-branch Logic
   const startOffer_Y = dstInterview_Top;
   const startActive_Y = startOffer_Y + hOffer;
   const startNoOffer_Y = startActive_Y + hActiveInt;
 
-  // End Points (Fan Logic)
   const spread = 40;
   
-  // LOGIC UPDATE: Use 'interviews > 0' to trigger the spread, 
-  // ensuring the forks open up immediately so you can click the empty bars.
-  const dstOffer_Top = dstInterview_Top - (interviews > 0 ? spread : 0);
-  const dstNoOffer_Top = dstInterview_Top + hOffer + hActiveInt + (interviews > 0 ? spread : 0);
+  // Show branches if we have ANY interview activity (even just the bar)
+  const showBranches = visualInterviewTotal > 0 || interviews > 0;
+  const dstOffer_Top = dstInterview_Top - (showBranches ? spread : 0);
+  const dstNoOffer_Top = dstInterview_Top + hOffer + hActiveInt + (showBranches ? spread : 0);
 
-  // X Coordinates (Stitched to prevent gaps)
   const startX = 2;
   const middleX = 500; 
-  const subBranchStartX = middleX - 2; // Overlap by 2px to ensure connection
+  const subBranchStartX = middleX - 2; 
   const endX = 900;
 
   const handleAction = async (type: string) => {
-    if (type === "interview") setIsModalOpen(true);
+    if (type === "interview") setModalMode("interview");
+    else if (type === "oa") setModalMode("oa");
     else if (type === "pending") await addApplications(1);
     else if (type === "offer") await logInterviewOutcome('offer');
     else if (type === "no_offer") await logInterviewOutcome('no_offer');
@@ -124,13 +135,11 @@ export default function SankeyTracker({ stats }: { stats: CareerStats | null }) 
         
         <svg className="w-full h-full absolute inset-0 z-10" viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`} preserveAspectRatio="none">
             <defs>
-                {/* High Contrast Gradients */}
                 <linearGradient id="gReject" x1="0" x2="1"><stop offset="0%" stopColor="#ef4444" stopOpacity="0.4"/><stop offset="100%" stopColor="#ef4444" stopOpacity="0.7"/></linearGradient>
                 <linearGradient id="gGhost" x1="0" x2="1"><stop offset="0%" stopColor="#6b7280" stopOpacity="0.4"/><stop offset="100%" stopColor="#6b7280" stopOpacity="0.7"/></linearGradient>
+                <linearGradient id="gOA" x1="0" x2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4"/><stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.7"/></linearGradient>
                 <linearGradient id="gPend" x1="0" x2="1"><stop offset="0%" stopColor="#eab308" stopOpacity="0.4"/><stop offset="100%" stopColor="#eab308" stopOpacity="0.7"/></linearGradient>
                 <linearGradient id="gInt" x1="0" x2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.4"/><stop offset="100%" stopColor="#10b981" stopOpacity="0.7"/></linearGradient>
-                
-                {/* Sub-Branch Gradients (Higher Opacity) */}
                 <linearGradient id="gOffer" x1="0" x2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.6"/><stop offset="100%" stopColor="#3b82f6" stopOpacity="0.9"/></linearGradient>
                 <linearGradient id="gNoOffer" x1="0" x2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.6"/><stop offset="100%" stopColor="#f97316" stopOpacity="0.9"/></linearGradient>
             </defs>
@@ -141,34 +150,34 @@ export default function SankeyTracker({ stats }: { stats: CareerStats | null }) 
                 APPS ({totalApps})
             </text>
 
-            {/* --- MAIN RIBBONS --- */}
+            {/* --- MAIN RIBBONS (Always Render to maintain Skeleton) --- */}
+            
             <Ribbon d={getRibbonPath(startX + 8, src.rejected.top, src.rejected.bot, middleX, dstRejected_Top, dstRejected_Top + hRejected)} fill="url(#gReject)" stroke="#ef4444" onClick={() => handleAction('rejected')} />
             <Label x={middleX + 10} y={dstRejected_Top + hRejected/2} text="Rejected" count={rejected} color="#ef4444" />
 
             <Ribbon d={getRibbonPath(startX + 8, src.ghosted.top, src.ghosted.bot, middleX, dstGhosted_Top, dstGhosted_Top + hGhosted)} fill="url(#gGhost)" stroke="#9ca3af" onClick={() => handleAction('ghosted')} />
             <Label x={middleX + 10} y={dstGhosted_Top + hGhosted/2} text="No Answer" count={ghosted} color="#9ca3af" />
 
+            {/* OA LAYER */}
+            <Ribbon d={getRibbonPath(startX + 8, src.oa.top, src.oa.bot, middleX, dstOA_Top, dstOA_Top + hOA)} fill="url(#gOA)" stroke="#8b5cf6" onClick={() => handleAction('oa')} />
+            <Label x={middleX + 10} y={dstOA_Top + hOA/2} text="Online Assessment" count={oa} color="#8b5cf6" />
+
             <Ribbon d={getRibbonPath(startX + 8, src.pending.top, src.pending.bot, middleX, dstPending_Top, dstPending_Top + hPending)} fill="url(#gPend)" stroke="#eab308" onClick={() => handleAction('pending')} />
             <Label x={middleX + 10} y={dstPending_Top + hPending/2} text="Pending" count={pending} color="#eab308" />
 
-            {/* Interview Hub (Green) */}
             <Ribbon d={getRibbonPath(startX + 8, src.interview.top, src.interview.bot, middleX, dstInterview_Top, dstInterview_Top + hInterviewTotal)} fill="url(#gInt)" stroke="#10b981" onClick={() => handleAction('interview')} />
-            
-            {/* Center Label for Interviews */}
             <Label x={middleX - 50} y={dstInterview_Top + hInterviewTotal + 15} text="Interviews" count={visualInterviewTotal} color="#10b981" center />
 
-            {/* --- SUB BRANCHES (Offers / No Offers) --- */}
-            {/* LOGIC UPDATE: Show these branches as soon as we have an interview */}
-            {interviews > 0 && (
+            {/* --- SUB BRANCHES --- */}
+            {/* Logic: Show branches if we have activity OR if we just want the skeleton to exist */}
+            {showBranches && (
                 <>
-                    {/* Offers (Blue) */}
                     <Ribbon 
                         d={getRibbonPath(subBranchStartX, startOffer_Y, startOffer_Y + hOffer, endX, dstOffer_Top, dstOffer_Top + hOffer)} 
                         fill="url(#gOffer)" stroke="#3b82f6" onClick={() => handleAction('offer')} delay={0.1} 
                     />
                     <Label x={endX + 10} y={dstOffer_Top + hOffer/2} text="Offers" count={offers} color="#3b82f6" />
 
-                    {/* No Offers (Orange) */}
                     <Ribbon 
                         d={getRibbonPath(subBranchStartX, startNoOffer_Y, startNoOffer_Y + hNoOffer, endX, dstNoOffer_Top, dstNoOffer_Top + hNoOffer)} 
                         fill="url(#gNoOffer)" stroke="#f97316" onClick={() => handleAction('no_offer')} delay={0.2} 
@@ -180,7 +189,11 @@ export default function SankeyTracker({ stats }: { stats: CareerStats | null }) 
         </svg>
     </div>
     
-    <AddInterviewDialog isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    <AddInterviewDialog 
+        isOpen={modalMode !== null} 
+        onClose={() => setModalMode(null)} 
+        mode={modalMode || "interview"} 
+    />
     </>
   );
 }

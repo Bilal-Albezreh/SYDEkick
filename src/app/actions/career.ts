@@ -3,7 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
-// 1. GET STATS
+// 1. GET STATS (Now includes OA)
 export async function getCareerStats() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -18,7 +18,7 @@ export async function getCareerStats() {
   if (!data) {
     const { data: newData } = await supabase
       .from("career_stats")
-      .insert({ user_id: user.id, pending_count: 0 })
+      .insert({ user_id: user.id, pending_count: 0, oa_count: 0 })
       .select()
       .single();
     return newData;
@@ -82,7 +82,7 @@ export async function moveApplications(targetStatus: string, count: number) {
   revalidatePath("/dashboard/career");
 }
 
-// 4. ADD INTERVIEW
+// 4. ADD EVENT (Smart Handling for Interview vs OA)
 export async function addInterview(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -91,32 +91,37 @@ export async function addInterview(formData: FormData) {
   const company = formData.get("company") as string;
   const role = formData.get("role") as string;
   const date = formData.get("date") as string;
+  const type = formData.get("type") as string; // 'interview' or 'oa'
 
+  // Insert into Interviews Table (Calendar Data)
   await supabase.from("interviews").insert({
     user_id: user.id,
     company_name: company,
     role_title: role,
     interview_date: date,
-    status: "Interview"
+    status: type === 'oa' ? "Pending" : "Interview", // OAs start as pending until done
+    type: type
   });
 
-  const { data: stats } = await supabase
-    .from("career_stats")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
+  // Update Pipeline Stats (Spatial Data)
+  const { data: stats } = await supabase.from("career_stats").select("*").eq("user_id", user.id).single();
 
   if (stats) {
     const currentPending = stats.pending_count || 0;
     const decrementAmount = Math.min(currentPending, 1);
     
+    // Increment the correct column based on type
+    const targetCol = type === 'oa' ? 'oa_count' : 'interview_count';
+    const currentTarget = (stats[targetCol] as number) || 0;
+
     await supabase.from("career_stats").update({
       pending_count: currentPending - decrementAmount,
-      interview_count: (stats.interview_count || 0) + 1
+      [targetCol]: currentTarget + 1
     }).eq("user_id", user.id);
   }
 
   revalidatePath("/dashboard/career");
+  revalidatePath("/dashboard/calendar");
 }
 
 // 5. LOG OUTCOME (Fixed TypeScript Error)
