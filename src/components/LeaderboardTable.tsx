@@ -3,7 +3,7 @@
 import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel, ColumnDef, SortingState } from "@tanstack/react-table";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { User, Trophy, Medal, ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { User, Trophy, Medal, ArrowUp, ArrowDown, Minus, Flame } from "lucide-react";
 
 // 1. Update Interface to include avatar_url
 interface Ranking {
@@ -13,6 +13,7 @@ interface Ranking {
   current_average: number;
   trend: number; 
   avatar_url: string | null; // <--- NEW FIELD
+  weekly_focus_minutes: number;
 }
 
 export default function LeaderboardTable({ data, currentUserId }: { data: Ranking[], currentUserId: string }) {
@@ -96,6 +97,36 @@ export default function LeaderboardTable({ data, currentUserId }: { data: Rankin
                     </span>
                 )}
             </div>
+          </div>
+        );
+      },
+    },
+    // --- [NEW] FOCUS TIME COLUMN ---
+    {
+      accessorKey: "weekly_focus_minutes",
+      header: () => (
+          <div className="flex items-center gap-1 text-orange-500/80">
+              <Flame className="w-3 h-3" />
+              <span>Focused Study Time</span>
+          </div>
+      ),
+      cell: (info) => {
+        const mins = info.getValue() as number;
+        const hours = Math.floor(mins / 60);
+        const m = mins % 60;
+        // Threshold for "On Fire" is 2 hours (120 mins)
+        const isFire = mins > 120; 
+
+        return (
+          <div className="flex items-center gap-2">
+            <div className={cn("font-mono text-xs font-medium", isFire ? "text-white" : "text-gray-500")}>
+               {hours > 0 ? `${hours}h ` : ""}{m}m
+            </div>
+            {isFire && (
+                <span className="hidden md:inline-flex text-[9px] font-bold bg-orange-500/10 text-orange-400 border border-orange-500/30 px-1.5 rounded animate-pulse">
+                    ON FIRE
+                </span>
+            )}
           </div>
         );
       },

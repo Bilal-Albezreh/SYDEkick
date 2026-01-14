@@ -14,6 +14,7 @@ import {
   X,
   Clock,
   Briefcase,
+  Hourglass,
   MessageSquare
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -45,6 +46,7 @@ export default function AppSidebar() {
     { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
     { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Trophy },
     { name: "Application Tracker", href: "/dashboard/career", icon: Briefcase },
+    { name: "Lock IN", href: "/dashboard/lockedin", icon: Hourglass },
     { name: "Profile", href: "/dashboard/profile", icon: User },
   ];
 

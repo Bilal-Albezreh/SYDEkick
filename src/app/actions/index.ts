@@ -98,16 +98,16 @@ export async function postMessage(content: string) {
 // --- 3. LEADERBOARD CALCULATIONS ---
 
 export async function getLeaderboardData() {
-  // SAFETY: Enforce Approval (Privacy - don't show stats to unapproved users)
+  // SAFETY: Enforce Approval
   const { supabase, user } = await validateUser(true);
 
-  // A. Fetch Participating Profiles
+  // A. Fetch Profiles (AND THE NEW FOCUS COLUMN)
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, is_anonymous, is_participating")
+    .select("id, full_name, avatar_url, is_anonymous, is_participating, weekly_focus_minutes") // <--- ADDED HERE
     .eq("is_participating", true);
 
-  // B. Fetch All Assessments
+  // B. Fetch All Assessments (Unchanged)
   const { data: assessments } = await supabase
     .from("assessments")
     .select(`
@@ -116,12 +116,11 @@ export async function getLeaderboardData() {
     `)
     .not("score", "is", null);
 
-  // C. Calculation Engine
+  // C. Calculation Engine (Unchanged)
   const userStats = new Map();
   const courseStats = new Map();
 
   assessments?.forEach((a: any) => {
-    // Safety Check: Skip if course data is null (RLS or deleted course)
     if (!a.courses) return;
 
     // User Totals
@@ -130,7 +129,7 @@ export async function getLeaderboardData() {
     u.earned += (a.score / 100) * a.weight;
     u.attempted += a.weight;
 
-    // Course Totals (For Radar & Specialists)
+    // Course Totals
     const code = a.courses.course_code;
     if (!courseStats.has(code)) courseStats.set(code, new Map());
     const courseMap = courseStats.get(code);
@@ -141,26 +140,28 @@ export async function getLeaderboardData() {
     cUser.attempted += a.weight;
   });
 
-  // D. Generate Rankings
+  // D. Generate Rankings (INJECT FOCUS MINUTES)
   let rankings = profiles?.map(p => {
     const stats = userStats.get(p.id) || { earned: 0, attempted: 0 };
     const avg = stats.attempted === 0 ? 0 : (stats.earned / stats.attempted) * 100;
     
     const isMe = p.id === user.id;
+    
     return {
       user_id: p.id,
       full_name: (p.is_anonymous && !isMe) ? "Anonymous User" : p.full_name,
       avatar_url: (p.is_anonymous && !isMe) ? null : p.avatar_url,
       is_anonymous: p.is_anonymous,
       current_average: avg,
+      weekly_focus_minutes: p.weekly_focus_minutes || 0, // <--- ADDED HERE (Default to 0 if null)
       trend: 0 
     };
   })
-  .filter(u => u.current_average > 0)
+  .filter(u => u.current_average > 0) // Keep users with grades
   .sort((a, b) => b.current_average - a.current_average)
   .map((u, i) => ({ ...u, rank: i + 1 })) || [];
 
-  // E. Generate Specialists
+  // E. Generate Specialists (Unchanged)
   const specialists = Array.from(courseStats.entries()).map(([subject, userMap]: [string, any]) => {
     let bestScore = -1;
     let holderId = "";
@@ -185,7 +186,7 @@ export async function getLeaderboardData() {
     };
   });
 
-  // F. Generate Radar Data
+  // F. Generate Radar Data (Unchanged)
   const radarData = Array.from(courseStats.keys()).map(subject => {
       const userMap = courseStats.get(subject);
       let totalClassAvg = 0;
@@ -199,12 +200,10 @@ export async function getLeaderboardData() {
         if (uid === user.id) myScore = avg;
       });
 
-      // Calculate Class Average
       const rawClassAvg = count === 0 ? 0 : totalClassAvg / count;
 
       return {
         subject,
-        // [FIX] Apply 2-decimal rounding to both values
         A: parseFloat(myScore.toFixed(2)), 
         B: parseFloat(rawClassAvg.toFixed(2)), 
         fullMark: 100
