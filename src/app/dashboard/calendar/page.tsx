@@ -10,7 +10,7 @@ export default async function CalendarPage() {
     redirect("/login");
   }
 
-  // Fetch Courses + Assessments for the Calendar
+  // 1. Fetch Courses + Assessments (Existing)
   const { data: courses } = await supabase
     .from("courses")
     .select(`
@@ -19,17 +19,20 @@ export default async function CalendarPage() {
     `)
     .eq("user_id", user.id);
 
+  // 2. Fetch Interviews (MISSING LINK)
+  const { data: interviews } = await supabase
+    .from("interviews")
+    .select("*")
+    .eq("user_id", user.id);
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-       {/* Simple Header */}
-       {/* <div className="mb-6 shrink-0"> */}
-         {/* <h1 className="text-3xl font-bold text-white tracking-tight">Master Schedule</h1> */}
-         {/* <p className="text-gray-500">Track deadlines. Stay organized.</p> */}
-       {/* </div> */}
-
-       {/* Calendar Container - Fills remaining height */}
        <div className="flex-1 min-h-0">
-          <Calendar initialData={courses || []} />
+          {/* 3. Pass both to the Component */}
+          <Calendar 
+            initialData={courses || []} 
+            initialInterviews={interviews || []} 
+          />
        </div>
     </div>
   );

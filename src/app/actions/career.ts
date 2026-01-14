@@ -169,3 +169,22 @@ export async function resetStat(category: string) {
 
   revalidatePath("/dashboard/career");
 }
+// 7. TOGGLE INTERVIEW DONE (For Calendar)
+export async function toggleInterviewComplete(interviewId: string, isComplete: boolean) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // If marking as complete, set status to 'Done'. 
+  // If unchecking, set back to 'Interview' (so it reappears on board).
+  const newStatus = isComplete ? "Done" : "Interview";
+
+  await supabase
+    .from("interviews")
+    .update({ status: newStatus })
+    .eq("id", interviewId)
+    .eq("user_id", user.id);
+
+  revalidatePath("/dashboard/calendar"); // Refresh calendar
+  revalidatePath("/dashboard/career");   // Refresh pipeline
+}
