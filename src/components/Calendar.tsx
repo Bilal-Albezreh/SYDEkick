@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, Check, Clock, ExternalLink, Filter, X, Briefcase, Handshake, Laptop } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toggleAssessmentCompletion } from "@/app/actions/index";
@@ -239,6 +239,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
     const handleCreateTask = async () => {
         if (!newTaskData.title || !newTaskData.due_date) return;
+        if (isCreatingTask.current) return; // [FIX] Lock
+        isCreatingTask.current = true;
 
         try {
             // Optimistic UI Update (Optional, but good for UX)
@@ -254,6 +256,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             router.refresh(); // Fetch real data
         } catch (e) {
             console.error(e);
+        } finally {
+            isCreatingTask.current = false; // [FIX] Unlock
         }
     };
 
