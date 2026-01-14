@@ -16,10 +16,10 @@ export function QuoteWidget() {
   const quotes = [
     "If you have 0 on one side and you are trying to prove both sides are equal to each other, the best way to do so is multiply the other side by 0 - Omar Soliman",
     "Lets stop being like Dora",
-    "Engineering is the closest thing to magic that exists in the world.",
+    "Today is a decent day to get some studying done.",
     "Ooooooooooooooh Chriiiiiiiiiiiiiis - Raed Rahman",
-    "Innovation distinguishes between a leader and a follower.",
-    "Simplicity is the ultimate sophistication."
+    "Lets lock in to make to Africa in 3b",
+    "Cant be failing courses in 2026"
   ];
   // Stable random based on day
   const dayIndex = new Date().getDate() % quotes.length;
