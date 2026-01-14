@@ -123,6 +123,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
     // [NEW] Add Event Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const isCreatingTask = useRef(false);
     const [newTaskData, setNewTaskData] = useState({
         title: "",
         type: "personal" as "personal" | "course_work",
