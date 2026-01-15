@@ -4,9 +4,10 @@ import { useState, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, Check, Clock, ExternalLink, Filter, X, Briefcase, Handshake, Laptop } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toggleAssessmentCompletion } from "@/app/actions/index";
+import { updateItemDate as updateItemDateDirect } from "@/app/actions/focus";
 import { toggleInterviewComplete } from "@/app/actions/career";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { createPersonalTask, deletePersonalTask, togglePersonalTaskCompletion } from "@/app/actions/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -95,19 +96,19 @@ const getAssessmentType = (name: string, type?: string) => {
 };
 
 
-// Safe Time Parser (Ignores Timezone shifts)
-const formatSafeTime = (isoString: string) => {
-    try {
-        const timePart = isoString.split('T')[1];
-        if (!timePart) return "";
-        const [h, m] = timePart.split(':');
-        const hour = parseInt(h);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const hour12 = hour % 12 || 12;
-        return `${hour12}:${m} ${ampm}`;
-    } catch (e) {
-        return "";
+// --- TIMEZONE AGNOSTIC HELPER ---
+// Takes a DB date string (YYYY-MM-DD...) or Date object
+// Returns "YYYY-MM-DD" strictly without timezone shifting
+const getItemDateKey = (dateInput: string | Date | null | undefined): string | null => {
+    if (!dateInput) return null;
+    if (typeof dateInput === 'string') {
+        return dateInput.split('T')[0]; // Safe for DB ISO strings "2026-02-15T..."
     }
+    // If it's a Date object (rarely passed here but cover it)
+    const year = dateInput.getFullYear();
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 export default function Calendar({ initialData, initialInterviews, initialPersonalTasks }: { initialData: any[], initialInterviews: any[], initialPersonalTasks?: any[] }) {
@@ -132,18 +133,72 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         description: "" // Optional
     });
 
+    // [NEW] RESCHEDULE STATE
+    const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+    const [rescheduleItem, setRescheduleItem] = useState<any>(null);
+    const [rescheduleDate, setRescheduleDate] = useState("");
+
+    const handleRescheduleClick = (item: any, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setRescheduleItem(item);
+
+        const targetDate = item.originalDate || item.due_date;
+
+        if (item.type === 'interview' || item.type === 'oa') {
+            const d = new Date(targetDate);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            setRescheduleDate(d.toISOString().slice(0, 16));
+        } else {
+            const dateStr = targetDate.split('T')[0];
+            setRescheduleDate(`${dateStr}T12:00`);
+        }
+        setIsRescheduleOpen(true);
+    };
+
+    const handleConfirmReschedule = async () => {
+        if (!rescheduleItem || !rescheduleDate) return;
+
+        try {
+            let datePayload = rescheduleDate;
+            // For Interviews, convert Local Input to UTC ISO to preserve Time
+            if (rescheduleItem.type === 'interview' || rescheduleItem.type === 'oa') {
+                datePayload = new Date(rescheduleDate).toISOString();
+            }
+
+            await updateItemDateDirect(rescheduleItem.id || rescheduleItem.uniqueId.split('-')[1], rescheduleItem.type || 'assessment', datePayload);
+            setIsRescheduleOpen(false);
+            setRescheduleItem(null);
+            router.refresh();
+        } catch (error) {
+            console.error("Failed to reschedule", error);
+        }
+    };
+
     // 2. DATA PROCESSING
-    const allItems = useMemo(() => {
+    const { flat, byDate } = useMemo(() => {
         let flattened: any[] = [];
+        let itemsByDate: Record<string, any[]> = {};
+
+        const addItem = (item: any) => {
+            flattened.push(item);
+            const key = getItemDateKey(item.originalDate || item.due_date); // Use original source if possible
+            if (key) {
+                if (!itemsByDate[key]) itemsByDate[key] = [];
+                itemsByDate[key].push(item);
+            }
+        };
 
         // A. Process Courses (Assignments)
         courses.forEach(c => {
             c.assessments.forEach((a: any) => {
-                if (!a.due_date) return; // [FIX] Null Safety
-                const cleanDate = a.due_date ? a.due_date.split('T')[0] : null;
-                flattened.push({
+                if (!a.due_date) return;
+                // Normalize using helper
+                const dateKey = getItemDateKey(a.due_date);
+
+                addItem({
                     ...a,
-                    due_date: cleanDate,
+                    due_date: dateKey, // Display/Logic Date
+                    originalDate: a.due_date,
                     courseCode: c.course_code,
                     uniqueId: `assessment-${a.id}`,
                     type: "assessment"
@@ -154,24 +209,29 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         // B. Process Career Events
         if (interviews) {
             interviews.forEach((i: any) => {
-                const d = new Date(i.interview_date);
-                // Local Date Fix
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                const dateKey = `${year}-${month}-${day}`;
+                // Timezone Agnostic Key
+                const dateKey = getItemDateKey(i.interview_date);
 
-                // Safe Time Fix
-                const timeStr = formatSafeTime(i.interview_date);
+                // Safe Time Display (Manually parse string to avoid Date obj shift)
+                let timeStr = "";
+                try {
+                    const timePart = i.interview_date.split('T')[1];
+                    if (timePart) {
+                        const [h, m] = timePart.split(':');
+                        const H = parseInt(h);
+                        timeStr = `${H % 12 || 12}:${m} ${H >= 12 ? 'PM' : 'AM'}`;
+                    }
+                } catch (e) { }
 
                 const isOA = i.type === 'oa';
-                const code = isOA ? "OA" : "INTERVIEW"; // [UPDATED CODE]
+                const code = isOA ? "OA" : "INTERVIEW";
 
-                flattened.push({
+                addItem({
                     uniqueId: `interview-${i.id}`,
                     name: i.company_name,
                     description: isOA ? `${i.role_title}` : i.role_title,
                     due_date: dateKey,
+                    originalDate: i.interview_date,
                     courseCode: code,
                     weight: isOA ? 998 : 999,
                     is_completed: i.status === 'Done',
@@ -184,7 +244,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         // C. Process Personal Tasks [NEW]
         if (personalTasks) {
             personalTasks.forEach((p: any) => {
-                const cleanDate = p.due_date ? p.due_date.split('T')[0] : null;
+                const dateKey = getItemDateKey(p.due_date);
 
                 // Find course info if it's course work
                 let courseCode = "PERSONAL";
@@ -193,11 +253,12 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                     if (matchedCourse) courseCode = matchedCourse.course_code;
                 }
 
-                flattened.push({
+                addItem({
                     uniqueId: `personal-${p.id}`,
                     name: p.title,
                     description: p.description,
-                    due_date: cleanDate,
+                    due_date: dateKey,
+                    originalDate: p.due_date,
                     courseCode: courseCode,
                     weight: 0, // No weight
                     is_completed: p.is_completed,
@@ -207,7 +268,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             });
         }
 
-        return flattened;
+        return { flat: flattened, byDate: itemsByDate };
     }, [courses, interviews, personalTasks]);
 
     // 3. ACTIONS
@@ -247,7 +308,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             // Optimistic UI Update (Optional, but good for UX)
             await createPersonalTask({
                 title: newTaskData.title,
-                due_date: new Date(newTaskData.due_date).toISOString(), // Ensure ISO
+                // [FIX] Force Noon Local Time to prevent Midnight Drift
+                due_date: new Date(`${newTaskData.due_date}T12:00:00`).toISOString(),
                 type: newTaskData.type,
                 course_id: newTaskData.type === 'course_work' ? newTaskData.course_id : undefined,
                 description: newTaskData.description
@@ -328,7 +390,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const isToday = new Date().toDateString() === currentDayDate.toDateString();
 
-                        let dayItems = allItems.filter(a => a.due_date === dateStr);
+                        let dayItems = byDate[dateStr] || []; // Lookup Correct Items
                         dayItems.sort((a, b) => b.weight - a.weight);
 
                         const visibleItems = showCompleted ? dayItems : dayItems.filter(a => !a.is_completed);
@@ -415,6 +477,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                             >
                                                 <Check className={cn("w-3.5 h-3.5 transition-transform", item.is_completed && "scale-100", !item.is_completed && "scale-0")} />
                                             </button>
+
                                         </div>
                                     );
                                 })}
@@ -428,7 +491,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     };
 
     const renderListView = () => {
-        const itemsByWeek = allItems.reduce((acc: any, item: any) => {
+        const itemsByWeek = flat.reduce((acc: any, item: any) => {
+            // ... rest stays same
             if (!item.due_date) return acc;
             const weekNum = getAcademicWeek(item.due_date);
             if (!acc[weekNum]) acc[weekNum] = [];
@@ -436,7 +500,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             return acc;
         }, {});
         const sortedWeeks = Object.keys(itemsByWeek).sort((a, b) => Number(a) - Number(b));
-        const uniqueCourses = Array.from(new Set(allItems.map(a => a.courseCode))).filter(c => c !== 'INTERVIEW' && c !== 'OA');
+        const uniqueCourses = Array.from(new Set(flat.map(a => a.courseCode))).filter(c => c !== 'INTERVIEW' && c !== 'OA'); // Use flat.map
 
         return (
             <div className="flex flex-col lg:flex-row gap-8 h-full animate-in slide-in-from-bottom-4 duration-500 p-4">
@@ -491,6 +555,14 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 </div>
 
                                                 <div className={cn("text-sm font-bold px-4 py-2 rounded-lg border ml-auto shrink-0 transition-opacity", item.is_completed ? "opacity-0" : "opacity-100", isInterview ? "bg-yellow-900/20 border-yellow-500/20 text-yellow-500" : "bg-gray-800 border-gray-700 text-gray-400")}>{daysMsg}</div>
+
+                                                {/* Edit Button for List View */}
+                                                <button
+                                                    onClick={(e) => handleRescheduleClick(item, e)}
+                                                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         )
                                     })}
@@ -565,7 +637,11 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-[#141414]">
                             <div>
                                 <h3 className="text-xl font-bold text-white">
-                                    {new Date(selectedDay).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                                    {(() => {
+                                        const [y, m, d] = selectedDay.split("-").map(Number);
+                                        const localDate = new Date(y, m - 1, d);
+                                        return localDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+                                    })()}
                                 </h3>
                                 <span className="text-sm text-gray-500">Daily Breakdown</span>
                             </div>
@@ -575,8 +651,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         </div>
 
                         <div className="p-5 overflow-y-auto custom-scrollbar space-y-3 bg-[#0a0a0a]">
-                            {allItems
-                                .filter(a => a.due_date === selectedDay)
+                            {(byDate[selectedDay] || []) // Use Map
                                 .sort((a, b) => b.weight - a.weight)
                                 .map((item: any) => {
                                     const isInterview = item.type === "interview";
@@ -587,7 +662,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                         <div
                                             key={item.uniqueId}
                                             className={cn(
-                                                "group flex items-center gap-4 p-4 rounded-xl border transition-all duration-200",
+                                                "group flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 relative", // Added 'relative'
                                                 getCourseTheme(item.courseCode),
                                                 item.is_completed && "opacity-40 grayscale border-dashed"
                                             )}
@@ -625,6 +700,16 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             )}
+
+                                            {/* Reschedule Button in Modal (Always Visible) */}
+                                            <button
+                                                onClick={(e) => handleRescheduleClick(item, e)}
+                                                className="absolute top-2 right-8 p-1.5 hover:bg-white/10 rounded-md text-gray-500 hover:text-white transition-all z-20 group/edit"
+                                                title="Reschedule"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+
 
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
@@ -734,7 +819,35 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         <Button onClick={handleCreateTask} className="bg-white text-black hover:bg-gray-200 font-bold">Create Event</Button>
                     </DialogFooter>
                 </DialogContent>
+
             </Dialog>
-        </div>
+
+            {/* RESCHEDULE DIALOG */}
+            <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
+                <DialogContent className="bg-[#111] border-gray-800 text-white z-[200] sm:max-w-md"> {/* Added z-[200] */}
+                    <DialogHeader>
+                        <DialogTitle>Reschedule Event</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        <div className="text-sm font-medium text-gray-400">
+                            {rescheduleItem?.name}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase">New Date & Time</label>
+                            <Input
+                                type="datetime-local"
+                                value={rescheduleDate}
+                                onChange={(e) => setRescheduleDate(e.target.value)}
+                                className="bg-[#0a0a0a] border-gray-800 text-white"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsRescheduleOpen(false)} className="border-gray-800 hover:bg-white/5 text-gray-400">Cancel</Button>
+                        <Button onClick={handleConfirmReschedule} className="bg-white text-black hover:bg-gray-200 font-bold">Confirm Reschedule</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 }

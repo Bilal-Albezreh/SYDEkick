@@ -4,9 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import {
   Send, MessageSquare, Loader2, CheckCircle2, Clock, CalendarDays,
   Trophy, Quote, Ghost, Target, ArrowUp, ArrowDown, Crown,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Pencil
 } from "lucide-react";
-import { postMessage } from "@/app/actions/index";
+import { postMessage } from "@/app/actions/index"; // Consolidating imports if possible, or direct import if not exported from index
+import { updateItemDate as updateItemDateDirect } from "@/app/actions/focus"; // Making sure we get it
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { format, differenceInCalendarDays, startOfDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -122,15 +126,31 @@ export function UpcomingWidget({ data }: { data: any[] }) {
   // 2. Sort: Closest date first
   const sorted = [...data]
     .filter(item => {
-      const d = new Date(item.due_date);
-      return d >= startOfDay(today) && d <= nextWeek;
+      // FIX: Treat string date as local YYYY-MM-DD to avoid timezone shifts
+      // Extract YYYY-MM-DD and create a "noon" date or just compare strings for safety
+      if (!item.due_date) return false;
+
+      const dateStr = item.due_date.split('T')[0]; // "2026-02-15"
+      const itemDate = new Date(`${dateStr}T12:00:00`); // Force noon local to avoid boundary issues
+      const todayNoon = new Date();
+      todayNoon.setHours(12, 0, 0, 0);
+      const nextWeekNoon = new Date(todayNoon);
+      nextWeekNoon.setDate(todayNoon.getDate() + 7);
+
+      return itemDate >= todayNoon && itemDate <= nextWeekNoon;
     })
     .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
     .slice(0, 5); // Limit to 5 to fit UI
 
   // Helper to determine color based on days remaining
   const getUrgencyStyles = (dueDate: string) => {
-    const daysLeft = differenceInCalendarDays(new Date(dueDate), today);
+    // Fix Timezone for difference calc
+    const dateStr = dueDate.split('T')[0];
+    const itemDate = new Date(`${dateStr}T00:00:00`);
+    const todayZero = new Date();
+    todayZero.setHours(0, 0, 0, 0);
+
+    const daysLeft = differenceInCalendarDays(itemDate, todayZero);
 
     if (daysLeft <= 0) return "bg-red-500/20 text-red-400 border-red-500/50 animate-pulse"; // Due Today
     if (daysLeft === 1) return "bg-orange-500/20 text-orange-400 border-orange-500/50"; // Due Tomorrow
@@ -138,55 +158,130 @@ export function UpcomingWidget({ data }: { data: any[] }) {
     return "bg-gray-800 text-gray-400 border-gray-700"; // Safe (4-7 days)
   };
 
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [newDate, setNewDate] = useState("");
+
+  const handleEditClick = (item: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingItem(item);
+
+    // [FIX] Smart Initialization
+    // Interviews: Preserve Time (use timezone offset hack)
+    // Assessments/Tasks: Force Noon (prevent Midnight Drift from legacy data)
+    if (item.type === 'interview' || item.type === 'oa') {
+      const d = new Date(item.due_date);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      setNewDate(d.toISOString().slice(0, 16));
+    } else {
+      const dateStr = item.due_date.split('T')[0];
+      setNewDate(`${dateStr}T12:00`);
+    }
+    setIsEditOpen(true);
+  };
+
+  const handleSaveDate = async () => {
+    if (!editingItem || !newDate) return;
+    try {
+      let datePayload = newDate;
+      // For Interviews, convert Local Input to UTC ISO to preserve Time
+      if (editingItem.type === 'interview' || editingItem.type === 'oa') {
+        datePayload = new Date(newDate).toISOString();
+      }
+
+      await updateItemDateDirect(editingItem.id, editingItem.type || 'assessment', datePayload);
+      setIsEditOpen(false);
+      setEditingItem(null);
+    } catch (e) {
+      console.error("Failed to update date", e);
+    }
+  };
+
   return (
-    <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 text-gray-500">
-          <CalendarDays className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-widest">Next 7 Days</span>
-        </div>
-        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-gray-400 font-mono">
-          {sorted.length} Due
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        {sorted && sorted.length > 0 ? (
-          sorted.map((item) => {
-            const urgencyClass = getUrgencyStyles(item.due_date);
-
-            return (
-              <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors group">
-                {/* Color Strip */}
-                <div
-                  className="w-1 h-8 rounded-full shrink-0 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: item.courses?.color || "#555" }}
-                />
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-gray-200 truncate">{item.name}</div>
-                  <div className="text-xs text-gray-500">{item.courses?.course_code}</div>
-                </div>
-
-                {/* Dynamic Date Box */}
-                <div className={cn(
-                  "text-xs font-mono whitespace-nowrap px-2.5 py-1 rounded border min-w-[60px] text-center font-bold",
-                  urgencyClass
-                )}>
-                  {format(new Date(item.due_date), "MMM d")}
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="flex flex-col items-center justify-center h-24 text-gray-600 italic gap-2 opacity-60">
-            <CalendarDays className="w-6 h-6 mb-1" />
-            <span className="text-xs">Nothing due this week.</span>
+    <>
+      <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 h-full">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-gray-500">
+            <CalendarDays className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-widest">Next 7 Days</span>
           </div>
-        )}
+          <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-gray-400 font-mono">
+            {sorted.length} Due
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          {sorted && sorted.length > 0 ? (
+            sorted.map((item) => {
+              const urgencyClass = getUrgencyStyles(item.due_date);
+
+              return (
+                <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors group">
+                  {/* Color Strip */}
+                  <div
+                    className="w-1 h-8 rounded-full shrink-0 group-hover:scale-110 transition-transform"
+                    style={{ backgroundColor: item.courses?.color || "#555" }}
+                  />
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-gray-200 truncate">{item.name}</div>
+                    <div className="text-xs text-gray-500">{item.courses?.course_code}</div>
+                  </div>
+
+                  {/* Dynamic Date Box */}
+                  <div className={cn(
+                    "text-xs font-mono whitespace-nowrap px-2.5 py-1 rounded border min-w-[60px] text-center font-bold mr-2",
+                    urgencyClass
+                  )}>
+                    {format(new Date(item.due_date), "MMM d")}
+                  </div>
+
+                  {/* Edit Button */}
+                  <button
+                    onClick={(e) => handleEditClick(item, e)}
+                    className="p-1.5 hover:bg-white/10 rounded-full text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center h-24 text-gray-600 italic gap-2 opacity-60">
+              <CalendarDays className="w-6 h-6 mb-1" />
+              <span className="text-xs">Nothing due this week.</span>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="bg-[#111] border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle>Reschedule Event</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-gray-400">
+                {editingItem?.name}
+              </div>
+              <label className="text-xs font-bold text-gray-500 uppercase">New Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="bg-[#0a0a0a] border-gray-800 text-white"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)} className="border-gray-800 hover:bg-white/5 text-gray-400">Cancel</Button>
+            <Button onClick={handleSaveDate} className="bg-white text-black hover:bg-gray-200 font-bold">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

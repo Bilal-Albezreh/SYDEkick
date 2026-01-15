@@ -180,3 +180,73 @@ export async function completeAssessment(assessmentId: string) {
   revalidatePath("/dashboard");
 }
 // [REMOVED] getSquadStatus function as per user request to remove Squad Widget
+
+// 5. Update Item Date (Reschedule Support)
+export async function updateItemDate(
+  id: string,
+  type: 'assessment' | 'interview' | 'personal' | 'oa' | 'course_work',
+  newDateString: string // Expecting "YYYY-MM-DD" or ISO string
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  console.log(`[updateItemDate] Request: ID=${id} Type=${type} DateStr=${newDateString}`);
+
+  // 1. Safe Date Construction
+  // Interviews/OA: Respect exact timestamp (Frontend sends full UTC ISO)
+  // Tasks/Assessments: Force Noon UTC to prevent Day Drift
+  let isoDate: string;
+
+  if (type === 'interview' || type === 'oa') {
+    // TRUST the frontend to have converted to UTC ISO
+    isoDate = newDateString.endsWith('Z') ? newDateString : new Date(newDateString).toISOString();
+  } else {
+    try {
+      const datePart = newDateString.includes('T') ? newDateString.split('T')[0] : newDateString;
+      isoDate = `${datePart}T12:00:00Z`;
+    } catch (e) {
+      console.error("[updateItemDate] Date Parsing Error:", e);
+      throw new Error("Invalid Date Format");
+    }
+  }
+
+  console.log(`[updateItemDate] Saving to DB: ${isoDate}`);
+
+  let error: any;
+
+  if (type === 'assessment') {
+    const { error: err } = await supabase
+      .from("assessments")
+      .update({ due_date: isoDate })
+      .eq("id", id)
+      .eq("user_id", user.id);
+    error = err;
+  }
+  else if (type === 'interview' || type === 'oa') {
+    const { error: err } = await supabase
+      .from("interviews")
+      .update({ interview_date: isoDate })
+      .eq("id", id)
+      .eq("user_id", user.id);
+    error = err;
+  }
+  else if (type === 'personal' || type === 'course_work') {
+    const { error: err } = await supabase
+      .from("personal_tasks")
+      .update({ due_date: isoDate })
+      .eq("id", id)
+      .eq("user_id", user.id);
+    error = err;
+  }
+
+  if (error) {
+    console.error("[updateItemDate] Supabase Error:", error);
+    throw new Error(`Failed to update ${type}: ${error.message}`);
+  }
+
+  console.log("[updateItemDate] Success");
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/calendar");
+}
