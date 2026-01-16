@@ -19,7 +19,7 @@ export default function RootLayout({
   // PURE SHELL - No logic here
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-[#111] text-gray-200`}>
+      <body className={`${inter.className} text-gray-200`}>
         {children}
         <Toaster position="top-right" theme="dark" />
       </body>

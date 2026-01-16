@@ -115,57 +115,77 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[#050505] text-foreground relative min-h-screen overflow-x-hidden;
+    /* Aurora Background - High Visibility Mode */
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.4), transparent 50%),
+      radial-gradient(circle at 100% 0%, rgba(20, 184, 166, 0.4), transparent 50%),
+      radial-gradient(circle at 100% 100%, rgba(67, 56, 202, 0.4), transparent 50%),
+      radial-gradient(circle at 0% 100%, rgba(109, 40, 217, 0.3), transparent 50%);
+    background-attachment: fixed;
   }
 }
+
 /* --- NOTION DARK MODE THEME --- */
 
 /* 1. Main Calendar Container */
 .rbc-calendar {
-    font-family: 'Inter', -apple-system, sans-serif;
-    color: #e3e3e3; /* Off-white text */
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: #e3e3e3;
+  /* Off-white text */
 }
 
 /* 2. Grid Lines (Dark Charcoal Borders) */
-.rbc-month-view, .rbc-time-view, .rbc-header, .rbc-month-row, .rbc-day-bg {
-    border-color: #2f2f2f !important; /* Subtle dark border */
+.rbc-month-view,
+.rbc-time-view,
+.rbc-header,
+.rbc-month-row,
+.rbc-day-bg {
+  border-color: #2f2f2f !important;
+  /* Subtle dark border */
 }
 
 /* 3. Header Cells (MON, TUE...) */
 .rbc-header {
-    @apply py-3 text-[11px] font-medium text-gray-400 uppercase tracking-widest border-b border-gray-800;
-    text-align: left;
-    padding-left: 8px;
+  @apply py-3 text-[11px] font-medium text-gray-400 uppercase tracking-widest border-b border-gray-800;
+  text-align: left;
+  padding-left: 8px;
 }
 
 /* 4. Date Numbers (1, 2, 3...) */
 .rbc-date-cell {
-    @apply text-xs font-medium text-gray-400 p-2;
-    text-align: left;
+  @apply text-xs font-medium text-gray-400 p-2;
+  text-align: left;
 }
 
 /* 5. Today's Cell (The Red Circle) */
 .rbc-today {
-    background-color: transparent !important; /* No ugly blue background */
+  background-color: transparent !important;
+  /* No ugly blue background */
 }
 
 
 /* 6. Off-range dates (Previous month - Darker) */
 .rbc-off-range-bg {
-    background-color: #141414 !important; /* Very dark/black */
+  background-color: #141414 !important;
+  /* Very dark/black */
 }
 
 /* 7. Current Month Background */
 .rbc-day-bg {
-    background-color: #191919; /* Notion Main Dark Gray */
+  background-color: #191919;
+  /* Notion Main Dark Gray */
 }
 
 /* 8. Row Cleanup */
 .rbc-month-row {
-    overflow: visible;
+  overflow: visible;
 }

@@ -30,11 +30,11 @@ export function QuoteWidget() {
   const randomQuote = quotes[dayIndex];
 
   return (
-    <div className="bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6 relative overflow-hidden h-full flex flex-col justify-center shadow-lg">
+    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 relative overflow-hidden h-full flex flex-col justify-center shadow-lg hover:bg-black/40 transition-colors duration-300">
       <Quote className="absolute top-4 left-4 w-8 h-8 text-indigo-400/20" />
       <div className="relative z-10">
         <h3 className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-3">Daily Insight</h3>
-        <p className="text-lg font-serif italic text-white leading-relaxed">"{randomQuote}"</p>
+        <p className="text-lg font-serif italic text-white leading-relaxed opacity-90">"{randomQuote}"</p>
       </div>
     </div>
   );
@@ -68,7 +68,7 @@ export function CountdownWidget() {
   const prevSlide = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
 
   return (
-    <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 flex flex-col justify-between h-full relative overflow-hidden group">
+    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 flex flex-col justify-between h-full relative overflow-hidden group hover:bg-black/40 transition-colors duration-300">
 
       {/* Navigation Arrows (Show on Hover) */}
       {currentIndex > 0 && (
@@ -199,7 +199,7 @@ export function UpcomingWidget({ data }: { data: any[] }) {
 
   return (
     <>
-      <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 h-full">
+      <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 h-full hover:bg-black/40 transition-colors duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-gray-500">
             <CalendarDays className="w-4 h-4" />
@@ -288,7 +288,7 @@ export function UpcomingWidget({ data }: { data: any[] }) {
 // --- WIDGET 4: COURSE PROGRESS (AUTO-FIT, NO SCROLL) ---
 export function ProgressWidget({ data }: { data: any[] }) {
   return (
-    <div className="bg-[#191919] border border-gray-800 rounded-xl p-5 h-full flex flex-col min-h-0">
+    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-5 h-full flex flex-col min-h-0 hover:bg-black/40 transition-colors duration-300">
       {/* Header */}
       <div className="flex items-center gap-2 text-gray-500 mb-2 shrink-0">
         <CheckCircle2 className="w-4 h-4" />
@@ -340,7 +340,7 @@ export function RankWidget({ myRank, topRank }: RankWidgetProps) {
 
   if (!myRank) {
     return (
-      <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden h-full">
+      <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden h-full">
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <Ghost className="w-24 h-24 text-gray-500" />
         </div>
@@ -362,16 +362,16 @@ export function RankWidget({ myRank, topRank }: RankWidgetProps) {
   const isFirst = rank === 1;
 
   return (
-    <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden h-full group">
+    <div className="bg-gradient-to-b from-white/10 to-black/40 backdrop-blur-md border border-white/10 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden h-full group transition-all duration-300 shadow-[0_0_20px_rgba(0,0,0,0.3)]">
       {/* Dynamic Background Glow */}
-      <div className={cn("absolute top-0 right-0 w-32 h-32 bg-gradient-to-br opacity-10 blur-3xl rounded-full -mr-10 -mt-10",
+      <div className={cn("absolute top-0 right-0 w-32 h-32 bg-gradient-to-br opacity-20 blur-3xl rounded-full -mr-10 -mt-10",
         isFirst ? "from-yellow-400 to-orange-500" : "from-blue-500 to-purple-500"
       )} />
 
       <div className="flex items-center justify-between text-gray-500 mb-2 relative z-10">
         <div className="flex items-center gap-2">
           <Trophy className={cn("w-4 h-4", isFirst ? "text-yellow-400" : "text-yellow-600")} />
-          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Class Rank</span>
+          <span className="text-sm font-bold uppercase tracking-widest text-gray-400">Class Rank</span>
         </div>
         {trend !== 0 && (
           <div className={`flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded ${trend > 0 ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
@@ -397,35 +397,35 @@ export function RankWidget({ myRank, topRank }: RankWidgetProps) {
       </div>
 
       {/* PODIUM SECTION WITH AVATARS */}
-      <div className="relative z-10 mt-5 space-y-2">
+      <div className="relative z-10 mt-5 space-y-3">
         <div className="flex items-center gap-2 mb-2">
-          <Crown className="w-3 h-3 text-yellow-500" />
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">Podium</span>
+          <Crown className="w-4 h-4 text-yellow-400" />
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Podium</span>
         </div>
         {topRank.slice(0, 3).map((student, idx) => (
-          <div key={student.user_id} className="flex items-center justify-between text-[11px] group/item">
-            <div className="flex items-center gap-2 min-w-0">
+          <div key={student.user_id} className="flex items-center justify-between text-sm group/item py-0.5">
+            <div className="flex items-center gap-3 min-w-0">
               <span className={cn(
-                "w-4 h-4 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0",
-                idx === 0 ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-400"
+                "w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 shadow-lg",
+                idx === 0 ? "bg-yellow-400 text-black shadow-yellow-500/50" : "bg-gray-800 text-gray-300 border border-gray-700"
               )}>
                 {idx + 1}
               </span>
 
               {/* AVATAR ADDED HERE */}
-              <Avatar className="w-5 h-5 border border-gray-700 shrink-0">
+              <Avatar className="w-6 h-6 border-2 border-gray-800 shrink-0">
                 <AvatarImage src={student.avatar_url || ""} className="object-cover aspect-square" />
-                <AvatarFallback className="text-[8px] bg-gray-800">{student.full_name?.[0]}</AvatarFallback>
+                <AvatarFallback className="text-[10px] bg-gray-700">{student.full_name?.[0]}</AvatarFallback>
               </Avatar>
 
               <span className={cn(
-                "truncate max-w-[80px]",
-                student.user_id === myRank.user_id ? "text-blue-400 font-bold" : "text-gray-400"
+                "truncate max-w-[100px]",
+                student.user_id === myRank.user_id ? "text-blue-300 font-bold drop-shadow-sm" : "text-gray-100"
               )}>
                 {student.is_anonymous && student.user_id !== myRank.user_id ? "Anonymous" : student.full_name?.split(' ')[0]}
               </span>
             </div>
-            <span className="text-gray-500 font-mono text-[10px]">{student.current_average.toFixed(1)}%</span>
+            <span className="text-gray-400 font-mono text-xs">{student.current_average.toFixed(1)}%</span>
           </div>
         ))}
       </div>
@@ -519,10 +519,10 @@ export function ChatWidget({
   };
 
   return (
-    <div className="bg-[#191919] border border-gray-800 rounded-xl flex flex-col h-full overflow-hidden shadow-2xl">
+    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl flex flex-col h-full overflow-hidden shadow-2xl">
 
       {/* HEADER */}
-      <div className="px-5 py-3 border-b border-gray-800 bg-[#151515] flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-white/5 bg-black/20 flex items-center justify-between">
         <h3 className="font-bold text-gray-200 text-xs uppercase tracking-widest flex items-center gap-2">
           <MessageSquare className="w-3 h-3 text-green-500" />
           Live Comms
@@ -534,7 +534,7 @@ export function ChatWidget({
       </div>
 
       {/* Retention Notice (Sticky) */}
-      <div className="bg-[#1e1e1e] border-b border-gray-800 py-1 flex justify-center shadow-md z-10 shrink-0">
+      <div className="bg-black/40 border-b border-white/5 py-1 flex justify-center shadow-md z-10 shrink-0">
         <span className="text-[9px] font-medium text-gray-500 flex items-center gap-1">
           <span className="w-1.5 h-1.5 bg-orange-500/50 rounded-full" />
           Messages deleted after 48h.
@@ -544,7 +544,7 @@ export function ChatWidget({
       {/* MESSAGES AREA */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 flex flex-col-reverse bg-[#111] space-y-reverse space-y-6 min-h-0"
+        className="flex-1 overflow-y-auto p-4 flex flex-col-reverse bg-transparent space-y-reverse space-y-6 min-h-0"
       >
         {messages.length > 0 ? (
           messages.map((msg) => {
@@ -600,7 +600,7 @@ export function ChatWidget({
       </div>
 
       {/* INPUT AREA */}
-      <div className="p-3 bg-[#151515] border-t border-gray-800">
+      <div className="p-3 bg-black/20 border-t border-white/5">
         <form onSubmit={handleSend} className="relative flex items-center gap-2">
           <input
             className="w-full bg-[#1a1a1a] text-gray-200 text-sm rounded-lg px-4 py-3 border border-gray-800 focus:border-green-500/40 focus:bg-[#202020] focus:outline-none transition-all placeholder:text-gray-600"

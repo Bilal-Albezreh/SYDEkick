@@ -36,7 +36,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       if (isSmall) setOpen(false);
       else setOpen(true);
     };
-    
+
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
@@ -46,8 +46,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarContext.Provider value={{ open, setOpen, toggleSidebar, isMobile }}>
-      <div className="flex min-h-screen bg-[#111] overflow-hidden w-full">
-         {children}
+      <div className="flex min-h-screen overflow-hidden w-full">
+        {children}
       </div>
     </SidebarContext.Provider>
   );

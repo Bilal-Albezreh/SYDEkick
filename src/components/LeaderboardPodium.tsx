@@ -36,14 +36,17 @@ export default function LeaderboardPodium({ topThree, currentUserId }: { topThre
           {place === 1 && <Crown className="w-6 h-6 text-yellow-400 mb-1 animate-bounce" />}
 
           <div className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs mb-2 border-2 overflow-hidden bg-gray-800", // [FIX] Added overflow-hidden and bg
-            isMe ? "border-white" : "border-gray-700"
+            "relative w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs mb-2 border-2 overflow-hidden bg-gray-800 z-10",
+            isMe ? "border-white shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "border-gray-700",
+            place === 1 && "shadow-[0_0_20px_rgba(250,204,21,0.5)] border-yellow-400"
           )}>
+            {/* Halo for #1 */}
+            {place === 1 && <div className="absolute inset-0 bg-yellow-400/20 blur-md z-0" />}
+
             {user.avatar_url ? (
-              // [FIX] Render image if available
-              <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
+              <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover relative z-10" />
             ) : (
-              isMe ? "ME" : <User className="w-4 h-4 text-gray-400" />
+              <div className="relative z-10">{isMe ? "ME" : <User className="w-4 h-4 text-gray-400" />}</div>
             )}
           </div>
 
@@ -61,10 +64,10 @@ export default function LeaderboardPodium({ topThree, currentUserId }: { topThre
           animate={{ height: height }}
           transition={{ duration: 0.5, delay: delay, type: "spring" }}
           className={cn(
-            "w-full rounded-t-lg flex items-end justify-center pb-4 text-4xl font-black text-black/20",
-            place === 1 ? "bg-gradient-to-t from-yellow-600 to-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)]" :
-              place === 2 ? "bg-gradient-to-t from-gray-500 to-gray-300" :
-                "bg-gradient-to-t from-amber-800 to-amber-600"
+            "w-full rounded-t-lg flex items-end justify-center pb-4 text-4xl font-black text-white/50 backdrop-blur-md border-t",
+            place === 1 ? "bg-gradient-to-t from-yellow-500/30 to-transparent border-yellow-500/50 shadow-[0_0_30px_rgba(250,204,21,0.2)]" :
+              place === 2 ? "bg-gradient-to-t from-slate-400/30 to-transparent border-slate-400/50 shadow-[0_0_20px_rgba(148,163,184,0.2)]" :
+                "bg-gradient-to-t from-orange-600/30 to-transparent border-orange-600/50 shadow-[0_0_20px_rgba(234,88,12,0.2)]"
           )}
         >
           {place}

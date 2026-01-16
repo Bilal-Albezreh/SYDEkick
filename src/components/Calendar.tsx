@@ -46,21 +46,21 @@ const COURSE_URLS: Record<string, string> = {
 // --- LUXURY THEME ENGINE ---
 const getCourseTheme = (code: string) => {
     const themes: Record<string, string> = {
-        "SYDE 285": "bg-red-950/40 border-red-500/20 text-red-100 hover:border-red-500/40 shadow-sm",
-        "SYDE 283": "bg-amber-950/40 border-amber-500/20 text-amber-100 hover:border-amber-500/40 shadow-sm",
-        "SYDE 261": "bg-emerald-950/40 border-emerald-500/20 text-emerald-100 hover:border-emerald-500/40 shadow-sm",
-        "SYDE 211": "bg-blue-950/40 border-blue-500/20 text-blue-100 hover:border-blue-500/40 shadow-sm",
-        "SYDE 182": "bg-violet-950/40 border-violet-500/20 text-violet-100 hover:border-violet-500/40 shadow-sm",
-        "SYDE 263": "bg-teal-950/40 border-teal-500/20 text-teal-100 hover:border-teal-500/40 shadow-sm",
+        "SYDE 285": "bg-red-900/50 border-red-500/50 text-gray-200 hover:bg-red-900/70 shadow-sm",
+        "SYDE 283": "bg-amber-900/50 border-amber-500/50 text-gray-200 hover:bg-amber-900/70 shadow-sm",
+        "SYDE 261": "bg-emerald-900/50 border-emerald-500/50 text-gray-200 hover:bg-emerald-900/70 shadow-sm",
+        "SYDE 211": "bg-blue-900/50 border-blue-500/50 text-gray-200 hover:bg-blue-900/70 shadow-sm",
+        "SYDE 182": "bg-violet-900/50 border-violet-500/50 text-gray-200 hover:bg-violet-900/70 shadow-sm",
+        "SYDE 263": "bg-teal-900/50 border-teal-500/50 text-gray-200 hover:bg-teal-900/70 shadow-sm",
 
         // GOLD THEME (Interviews)
-        "INTERVIEW": "bg-yellow-950/40 border-yellow-500/40 text-yellow-100 hover:border-yellow-400/60 shadow-[0_0_15px_rgba(234,179,8,0.1)]",
+        "INTERVIEW": "bg-yellow-900/50 border-yellow-500/50 text-gray-200 hover:bg-yellow-900/70 shadow-[0_0_15px_rgba(234,179,8,0.1)]",
 
         // [NEW] NEON CYAN THEME (OAs) - "The System Vibe"
-        "OA": "bg-cyan-950/40 border-cyan-500/20 text-cyan-100 hover:border-cyan-400/60 shadow-[0_0_15px_rgba(6,182,212,0.1)]",
+        "OA": "bg-cyan-900/50 border-cyan-500/50 text-gray-200 hover:bg-cyan-900/70 shadow-[0_0_15px_rgba(6,182,212,0.1)]",
 
         // [NEW] PERSONAL THEME
-        "PERSONAL": "bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-gray-800 hover:border-gray-400 shadow-sm",
+        "PERSONAL": "bg-zinc-800/50 border-zinc-500/50 text-gray-200 hover:bg-zinc-800/70 shadow-sm",
     };
 
     return themes[code] || "bg-gray-900/50 border-gray-800 text-gray-300";
@@ -381,9 +381,9 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         const daysArray = Array.from({ length: days }, (_, i) => i + 1);
 
         return (
-            <div className="flex flex-col animate-in fade-in duration-500">
-                <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-gray-900/20">
-                    {blanks.map((_, i) => <div key={`blank-${i}`} className="bg-[#050505]/50 border-b border-r border-gray-900/50 min-h-[120px]" />)}
+            <div className="flex flex-col animate-in fade-in duration-500 h-full">
+                <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-[#0a0a0a]/40 backdrop-blur-md">
+                    {blanks.map((_, i) => <div key={`blank-${i}`} className="bg-transparent border-b border-r border-white/5 min-h-[120px]" />)}
 
                     {daysArray.map(day => {
                         const currentDayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
@@ -403,7 +403,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                 key={day}
                                 onClick={() => { if (visibleItems.length > 0) setSelectedDay(dateStr); }}
                                 className={cn(
-                                    "relative p-1 flex flex-col gap-1.5 border-b border-r border-gray-800/80 transition-colors group/cell min-h-[160px]",
+                                    "relative p-1 flex flex-col gap-1.5 border-b border-r border-white/5 transition-colors group/cell min-h-[160px]",
                                     isToday ? "bg-blue-900/5" : "bg-transparent hover:bg-white/[0.02]",
                                     visibleItems.length > 0 && "cursor-pointer"
                                 )}
@@ -429,10 +429,12 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                         <div
                                             key={item.uniqueId}
                                             className={cn(
-                                                "relative flex flex-col p-2 rounded border shadow-sm transition-all",
-                                                getCourseTheme(item.courseCode),
+                                                "relative flex flex-col px-2 py-1.5 rounded-sm border-l-2 shadow-sm transition-all overflow-hidden",
+                                                getCourseTheme(item.courseCode).replace('border-', 'border-l-'), // Hack to ensure left border is used effectively or override below
+                                                "border-y-0 border-r-0", // Reset other borders
                                                 item.is_completed && "opacity-40 grayscale border-dashed"
                                             )}
+                                            style={{ borderColor: getCourseColor(item.courseCode) }} // Force Left Border Color
                                         >
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className={cn("text-[10px] font-black tracking-tight uppercase opacity-95 flex items-center gap-1",
@@ -513,8 +515,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         if (visibleItems.length === 0) return null;
 
                         return (
-                            <div key={weekNum} className="mb-10">
-                                <div className="relative bg-[#0a0a0a]/95 backdrop-blur-md z-10 py-4 border-b border-gray-800 mb-6 flex items-baseline gap-4">
+                            <div key={weekNum} className="mb-6 bg-black/25 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+                                <div className="relative z-10 pb-4 mb-2 flex items-baseline gap-4 border-b border-white/5">
                                     <h3 className="text-2xl font-bold text-white tracking-tight">Week {weekNum}</h3>
                                     <span className="text-sm text-gray-500 font-mono">Academic Term</span>
                                 </div>
@@ -527,39 +529,42 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
                                         return (
                                             <div key={item.uniqueId} className={cn(
-                                                "group flex items-center gap-6 p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden",
-                                                item.is_completed
-                                                    ? "bg-transparent border-transparent opacity-40 hover:opacity-100"
-                                                    : isInterview
-                                                        ? "bg-[#1f1200] border-yellow-900/50"
-                                                        : isOA
-                                                            ? "bg-[#083344] border-cyan-500/30" // [UPDATED] Cyan List Style
-                                                            : "bg-[#141414] border-gray-800"
+                                                "group flex items-center gap-6 p-4 rounded-xl border transition-all duration-200 relative overflow-hidden mb-3",
+                                                "bg-white/5 backdrop-blur-md border-white/5 hover:bg-white/10 hover:border-white/20",
+                                                item.is_completed && "opacity-40 grayscale"
                                             )}>
-                                                <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: getCourseColor(item.courseCode) }} />
+                                                <div className="absolute left-0 top-0 bottom-0 w-1 z-20" style={{ backgroundColor: getCourseColor(item.courseCode) }} />
+                                                <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300 opacity-[0.08] group-hover:opacity-[0.12]" style={{ backgroundColor: getCourseColor(item.courseCode) }} />
 
-                                                <button onClick={() => handleToggleComplete(item.uniqueId, item.is_completed)} className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ml-1", item.is_completed ? "bg-emerald-500 border-emerald-500 text-white scale-110" : "border-gray-600 hover:border-white text-transparent")}>
+                                                <button onClick={() => handleToggleComplete(item.uniqueId, item.is_completed)} className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ml-1 relative z-10", item.is_completed ? "bg-emerald-500 border-emerald-500 text-white scale-110" : "border-white/20 hover:border-white text-transparent")}>
                                                     <Check className="w-3.5 h-3.5 stroke-[3]" />
                                                 </button>
 
-                                                <div className="flex-1 min-w-0">
+                                                <div className="flex-1 min-w-0 relative z-10">
                                                     <div className="flex items-center gap-3 mb-1.5">
-                                                        <span className="text-xs font-bold px-2 py-0.5 rounded-md border tracking-wide uppercase shadow-sm" style={{ borderColor: `${getCourseColor(item.courseCode)}40`, backgroundColor: `${getCourseColor(item.courseCode)}10`, color: getCourseColor(item.courseCode) }}>{item.courseCode}</span>
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded border tracking-wide uppercase shadow-sm" style={{
+                                                            borderColor: `${getCourseColor(item.courseCode)}40`,
+                                                            backgroundColor: `${getCourseColor(item.courseCode)}10`, // Fallback
+                                                            color: `${getCourseColor(item.courseCode)}`
+                                                        }}>
+                                                            <span className={cn("opacity-80", getCourseTheme(item.courseCode).split(' ')[0])}></span>{/* Tiny hack for theme color if needed, but manual style overrides it */}
+                                                            {item.courseCode}
+                                                        </span>
                                                         <div className="flex items-center gap-1.5 text-sm text-gray-500 font-medium">
                                                             <Clock className="w-3.5 h-3.5" />
                                                             <span>{formatDate(item.due_date)} {isCareer && `@ ${item.timeDisplay}`}</span>
                                                         </div>
                                                     </div>
-                                                    <div className={cn("text-lg font-medium text-gray-200", item.is_completed && "line-through text-gray-500")}>{item.name}</div>
+                                                    <div className={cn("text-base font-medium text-gray-100", item.is_completed && "line-through text-gray-500")}>{item.name}</div>
                                                     {isCareer && <div className={cn("text-sm", isInterview ? "text-yellow-500/80" : "text-cyan-400")}>{item.description}</div>}
                                                 </div>
 
-                                                <div className={cn("text-sm font-bold px-4 py-2 rounded-lg border ml-auto shrink-0 transition-opacity", item.is_completed ? "opacity-0" : "opacity-100", isInterview ? "bg-yellow-900/20 border-yellow-500/20 text-yellow-500" : "bg-gray-800 border-gray-700 text-gray-400")}>{daysMsg}</div>
+                                                <div className={cn("text-xs font-bold px-3 py-1.5 rounded-lg border ml-auto shrink-0 transition-opacity relative z-10", item.is_completed ? "opacity-0" : "opacity-100", isInterview ? "bg-yellow-900/20 border-yellow-500/20 text-yellow-500" : "bg-white/10 border-white/5 text-gray-300")}>{daysMsg}</div>
 
                                                 {/* Edit Button for List View */}
                                                 <button
                                                     onClick={(e) => handleRescheduleClick(item, e)}
-                                                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100 relative z-10"
                                                 >
                                                     <Pencil className="w-4 h-4" />
                                                 </button>
@@ -573,9 +578,9 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 </div>
                 {/* Sidebar */}
                 <div className="hidden lg:block w-72 shrink-0">
-                    <div className="sticky top-[100px] bg-[#141414] border border-gray-800 rounded-2xl p-5 shadow-xl">
+                    <div className="sticky top-[100px] bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-xl">
                         <div className="flex items-center gap-2 mb-4 text-gray-400"><Filter className="w-4 h-4" /><span className="text-xs font-bold uppercase tracking-widest">Quick Access</span></div>
-                        <div className="space-y-2">{uniqueCourses.map((code: any) => (<a key={code} href={COURSE_URLS[code] || "https://learn.uwaterloo.ca/"} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors group"><div className="flex items-center gap-3"><div className="w-1.5 h-10 rounded-full" style={{ backgroundColor: getCourseColor(code) }} /><div><div className="font-bold text-gray-200 group-hover:text-white transition-colors text-sm">{code}</div><div className="text-xs text-gray-500 font-medium">{COURSE_TITLES[code] || "Course"}</div></div></div><ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all" /></a>))}</div>
+                        <div className="space-y-2">{uniqueCourses.map((code: any) => (<a key={code} href={COURSE_URLS[code] || "https://learn.uwaterloo.ca/"} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all group"><div className="flex items-center gap-3"><div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: getCourseColor(code) }} /><div><div className="font-bold text-gray-200 group-hover:text-white transition-colors text-sm">{code}</div><div className="text-xs text-gray-500 font-medium">{COURSE_TITLES[code] || "Course"}</div></div></div><ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all" /></a>))}</div>
                     </div>
                 </div>
             </div>
@@ -584,49 +589,50 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
     // --- MAIN RENDER ---
     return (
-        <div className="flex flex-col h-full bg-[#0a0a0a] rounded-xl overflow-y-auto custom-scrollbar relative border border-gray-900">
+        <div className="flex flex-col h-full bg-transparent overflow-hidden">
 
-            {/* HEADER */}
-            <div className="sticky top-0 z-50 backdrop-blur-xl bg-black/80 border-b border-white/10 shadow-2xl">
-                <div className="p-5 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-gray-800">
-                            <button onClick={prevMonth} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-                            <button onClick={nextMonth} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"><ChevronRight className="w-4 h-4" /></button>
-                        </div>
-                        <div className="text-xl font-bold text-white tracking-tight">
-                            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                        </div>
-                        <button onClick={jumpToToday} className="text-[10px] font-bold bg-white/10 text-gray-300 px-3 py-1 rounded-full border border-white/5 hover:bg-white/20 transition-colors tracking-wide">
-                            TODAY
-                        </button>
+            {/* HEADER - DETACHED */}
+            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-4 mb-6 shrink-0 flex items-center justify-between shadow-lg">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-gray-800">
+                        <button onClick={prevMonth} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                        <button onClick={nextMonth} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"><ChevronRight className="w-4 h-4" /></button>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 bg-black/40 pl-3 pr-1 py-1 rounded-full border border-gray-800">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden md:inline">Show Done</span>
-                            <Switch checked={showCompleted} onCheckedChange={setShowCompleted} className="scale-75" />
-                        </div>
-                        <div className="h-6 w-px bg-gray-800 hidden md:block" />
-                        <div className="flex bg-black/40 p-1 rounded-lg border border-gray-800">
-                            <button onClick={() => setViewMode("month")} className={cn("px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2", viewMode === "month" ? "bg-gray-800 text-white shadow-sm ring-1 ring-white/5" : "text-gray-500 hover:text-white")}><CalendarIcon className="w-3.5 h-3.5" /> Month</button>
-                            <button onClick={() => setViewMode("list")} className={cn("px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2", viewMode === "list" ? "bg-gray-800 text-white shadow-sm ring-1 ring-white/5" : "text-gray-500 hover:text-white")}><List className="w-3.5 h-3.5" /> List</button>
-                        </div>
+                    <div className="text-xl font-bold text-white tracking-tight">
+                        {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </div>
+                    <button onClick={jumpToToday} className="text-[10px] font-bold bg-white/10 text-gray-300 px-3 py-1 rounded-full border border-white/5 hover:bg-white/20 transition-colors tracking-wide">
+                        TODAY
+                    </button>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 bg-black/40 pl-3 pr-1 py-1 rounded-full border border-gray-800">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden md:inline">Show Done</span>
+                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} className="scale-75" />
+                    </div>
+                    <div className="h-6 w-px bg-gray-800 hidden md:block" />
+                    <div className="flex bg-black/40 p-1 rounded-lg border border-gray-800">
+                        <button onClick={() => setViewMode("month")} className={cn("px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2", viewMode === "month" ? "bg-gray-800 text-white shadow-sm ring-1 ring-white/5" : "text-gray-500 hover:text-white")}><CalendarIcon className="w-3.5 h-3.5" /> Month</button>
+                        <button onClick={() => setViewMode("list")} className={cn("px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2", viewMode === "list" ? "bg-gray-800 text-white shadow-sm ring-1 ring-white/5" : "text-gray-500 hover:text-white")}><List className="w-3.5 h-3.5" /> List</button>
                     </div>
                 </div>
+            </div>
 
+            {/* MAIN CALENDAR GRID CONTAINER */}
+            <div className="flex-1 min-h-0 bg-black/40 backdrop-blur-1l border border-white/10 rounded-xl overflow-y-auto custom-scrollbar relative">
                 {viewMode === "month" && (
-                    <div className="grid grid-cols-7 text-center pb-2">
+                    <div className="grid grid-cols-7 text-center pb-2 pt-2 border-b border-white/10 bg-black/20 sticky top-0 z-10 backdrop-blur-sm">
                         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
-                            <div key={d} className={cn("text-[10px] font-bold text-gray-500 uppercase tracking-widest py-1", (i === 0 || i === 6) ? "text-gray-600" : "")}>{d}</div>
+                            <div key={d} className={cn("text-[10px] font-bold text-white/50 uppercase tracking-widest py-1", (i === 0 || i === 6) ? "text-white/30" : "")}>{d}</div>
                         ))}
                     </div>
                 )}
-            </div>
 
-            <div className="flex-1 min-h-0 bg-[#0a0a0a] pb-20">
-                <div className="md:hidden h-full">{renderListView()}</div>
-                <div className="hidden md:block h-full relative">
-                    {viewMode === "month" ? renderMonthView() : renderListView()}
+                <div className="h-full">
+                    <div className="md:hidden h-full">{renderListView()}</div>
+                    <div className="hidden md:block h-full relative">
+                        {viewMode === "month" ? renderMonthView() : renderListView()}
+                    </div>
                 </div>
             </div>
 
@@ -848,6 +854,6 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div >
+        </div>
     );
 }

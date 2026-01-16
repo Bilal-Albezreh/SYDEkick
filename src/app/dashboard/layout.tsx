@@ -53,7 +53,7 @@ export default async function DashboardLayout({
   // 4. AUTO-SEED TRIGGER (The "Magic" Line)
   // This checks if the user has data. If not, it creates it instantly.
   try {
-    await seedCourses(false); 
+    await seedCourses(false);
   } catch (err) {
     console.error("Auto-seeding failed:", err);
     // We swallow the error so the dashboard still loads even if seeding fails
@@ -62,18 +62,18 @@ export default async function DashboardLayout({
   // 5. APPROVED USER VIEW (Sidebar + Content)
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+      <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative w-full">
-           {/* Mobile Trigger */}
-           <div className="absolute top-4 left-4 z-50 md:hidden">
-              <SidebarTrigger />
-           </div>
-           
-           {/* Scrollable Content Area */}
-           <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 md:pt-8">
-              {children}
-           </div>
+          {/* Mobile Trigger */}
+          <div className="absolute top-4 left-4 z-50 md:hidden">
+            <SidebarTrigger />
+          </div>
+
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 md:pt-8">
+            {children}
+          </div>
         </main>
       </div>
     </SidebarProvider>

@@ -26,7 +26,7 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
   const [isAnon, setIsAnon] = useState(profile.is_anonymous);
   const [isParticipating, setIsParticipating] = useState(profile.is_participating ?? true);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  
+
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,30 +86,30 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
   // [UPDATED] Now scales image before upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     setUploading(true);
     try {
-        const originalFile = e.target.files[0];
-        
-        // 1. Client-Side Compression
-        const optimizedBlob = await scaleImage(originalFile);
-        
-        // 2. Prepare FormData with the smaller blob
-        const formData = new FormData();
-        // We force the name to .jpg because we converted it to JPEG above
-        formData.append("file", optimizedBlob, "avatar.jpg");
+      const originalFile = e.target.files[0];
 
-        // 3. Upload
-        const { publicUrl } = await uploadAvatar(formData);
-        if (publicUrl) {
-            setAvatarUrl(publicUrl); 
-            toast.success("Avatar updated!");
-        }
+      // 1. Client-Side Compression
+      const optimizedBlob = await scaleImage(originalFile);
+
+      // 2. Prepare FormData with the smaller blob
+      const formData = new FormData();
+      // We force the name to .jpg because we converted it to JPEG above
+      formData.append("file", optimizedBlob, "avatar.jpg");
+
+      // 3. Upload
+      const { publicUrl } = await uploadAvatar(formData);
+      if (publicUrl) {
+        setAvatarUrl(publicUrl);
+        toast.success("Avatar updated!");
+      }
     } catch (error) {
-        console.error(error);
-        toast.error("Failed to upload image");
+      console.error(error);
+      toast.error("Failed to upload image");
     } finally {
-        setUploading(false);
+      setUploading(false);
     }
   };
 
@@ -166,194 +166,195 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
   // --- RENDER (EXACT SAME AS BEFORE) ---
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto">
-      
+
       {/* LEFT COLUMN: IDENTITY & PRIVACY */}
       <div className="space-y-6">
-        
+
         {/* 1. PUBLIC PROFILE CARD */}
-        <div className="bg-[#191919] border border-gray-800 rounded-xl p-6">
-            <div className="flex items-center gap-2 mb-6">
-                <User className="w-5 h-5 text-blue-500" />
-                <h2 className="text-lg font-bold text-white">Public Profile</h2>
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <User className="w-5 h-5 text-blue-500" />
+            <h2 className="text-lg font-bold text-white">Public Profile</h2>
+          </div>
+
+          {/* Avatar Uploader */}
+          <div className="flex items-center gap-6 mb-8 border-b border-gray-800 pb-8">
+            <div
+              className="relative group cursor-pointer shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-700 group-hover:border-white transition-colors bg-gray-800">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-500">
+                    <User className="w-8 h-8" />
+                  </div>
+                )}
+              </div>
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {uploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white" />}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/png, image/jpeg, image/jpg"
+                onChange={handleFileChange}
+              />
             </div>
 
-            {/* Avatar Uploader */}
-            <div className="flex items-center gap-6 mb-8 border-b border-gray-800 pb-8">
-                <div 
-                    className="relative group cursor-pointer shrink-0"
-                    onClick={() => fileInputRef.current?.click()}
-                >
-                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-700 group-hover:border-white transition-colors bg-gray-800">
-                        {avatarUrl ? (
-                            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                <User className="w-8 h-8" />
-                            </div>
-                        )}
-                    </div>
-                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        {uploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white" />}
-                    </div>
-                    <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/png, image/jpeg, image/jpg"
-                        onChange={handleFileChange}
-                    />
-                </div>
-                
-                <div className="text-sm text-gray-500">
-                    <p className="font-medium text-gray-300 mb-1">Profile Photo</p>
-                    <p>Click the circle to upload.</p>
-                </div>
+            <div className="text-sm text-gray-500">
+              <p className="font-medium text-gray-300 mb-1">Profile Photo</p>
+              <p>Click the circle to upload.</p>
             </div>
+          </div>
 
-            {/* Name Form */}
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-                <div className="grid gap-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Display Name</label>
-                    <Input 
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="bg-[#111] border-gray-700 text-white h-11"
-                        placeholder="Your Name"
-                    />
-                    <p className="text-[10px] text-gray-600">This is how you appear in the Class Chat and Leaderboard.</p>
-                </div>
-                <div className="grid gap-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Email Address</label>
-                    <Input 
-                        value={user.email}
-                        disabled
-                        className="bg-[#111] border-gray-800 text-gray-500 cursor-not-allowed h-11"
-                    />
-                </div>
-                <div className="pt-2">
-                    <Button disabled={loadingProfile} className="w-full md:w-auto bg-white text-black hover:bg-gray-200 font-bold">
-                        {loadingProfile ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                        Save Changes
-                    </Button>
-                </div>
-            </form>
+          {/* Name Form */}
+          <form onSubmit={handleSaveProfile} className="space-y-4">
+            <div className="grid gap-2">
+              <label className="text-xs font-bold text-gray-500 uppercase">Display Name</label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-black/50 border-white/10 text-gray-200 h-11 focus:border-cyan-500/50"
+                placeholder="Your Name"
+              />
+              <p className="text-[10px] text-gray-600">This is how you appear in the Class Chat and Leaderboard.</p>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-xs font-bold text-gray-500 uppercase">Email Address</label>
+              <Input
+                value={user.email}
+                disabled
+                className="bg-[#111] border-gray-800 text-gray-500 cursor-not-allowed h-11"
+              />
+            </div>
+            <div className="pt-2">
+              <Button disabled={loadingProfile} className="w-full md:w-auto bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:opacity-90 font-bold border-0">
+                {loadingProfile ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
         </div>
 
         {/* 2. PRIVACY SETTINGS CARD */}
-        <div className="bg-[#191919] border border-gray-800 rounded-xl p-6">
-            <div className="flex items-center gap-2 mb-6">
-                <Shield className="w-5 h-5 text-green-500" />
-                <h2 className="text-lg font-bold text-white">Privacy Settings</h2>
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Shield className="w-5 h-5 text-green-500" />
+            <h2 className="text-lg font-bold text-white">Privacy Settings</h2>
+          </div>
+
+          <div className="space-y-4">
+            {/* TOGGLE 1: VISIBILITY */}
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/5">
+              <div className={cn("transition-opacity", !isParticipating && "opacity-50")}>
+                <div className="font-bold text-gray-200 flex items-center gap-2">
+                  {isAnon ? "Incognito" : "Visible"}
+                  {isAnon ? <EyeOff className="w-4 h-4 text-yellow-500" /> : <Eye className="w-4 h-4 text-green-500" />}
+                </div>
+                <p className="text-xs text-gray-500 mt-1 max-w-[200px]">
+                  Hide your name on leaderboards.
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={handlePrivacyToggle}
+                disabled={!isParticipating}
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "border-gray-700 bg-transparent min-w-[90px]",
+                  isAnon ? "text-yellow-500 hover:text-yellow-400" : "text-gray-400 hover:text-white"
+                )}
+              >
+                {isAnon ? "Hidden" : "Public"}
+              </Button>
             </div>
 
-            <div className="space-y-4">
-                {/* TOGGLE 1: VISIBILITY */}
-                <div className="flex items-center justify-between p-4 bg-[#111] rounded-lg border border-gray-800">
-                    <div className={cn("transition-opacity", !isParticipating && "opacity-50")}>
-                        <div className="font-bold text-gray-200 flex items-center gap-2">
-                            {isAnon ? "Incognito" : "Visible"}
-                            {isAnon ? <EyeOff className="w-4 h-4 text-yellow-500" /> : <Eye className="w-4 h-4 text-green-500" />}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1 max-w-[200px]">
-                            Hide your name on leaderboards.
-                        </p>
-                    </div>
-                    <Button 
-                        type="button"
-                        onClick={handlePrivacyToggle}
-                        disabled={!isParticipating}
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                            "border-gray-700 bg-transparent min-w-[90px]",
-                            isAnon ? "text-yellow-500 hover:text-yellow-400" : "text-gray-400 hover:text-white"
-                        )}
-                    >
-                        {isAnon ? "Hidden" : "Public"}
-                    </Button>
+            {/* TOGGLE 2: PARTICIPATION */}
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/5">
+              <div>
+                <div className="font-bold text-gray-200 flex items-center gap-2">
+                  {isParticipating ? "Participating" : "Ghost Mode"}
+                  {isParticipating ? <Trophy className="w-4 h-4 text-blue-500" /> : <Ghost className="w-4 h-4 text-gray-500" />}
                 </div>
-
-                {/* TOGGLE 2: PARTICIPATION */}
-                <div className="flex items-center justify-between p-4 bg-[#111] rounded-lg border border-gray-800">
-                    <div>
-                        <div className="font-bold text-gray-200 flex items-center gap-2">
-                            {isParticipating ? "Participating" : "Ghost Mode"}
-                            {isParticipating ? <Trophy className="w-4 h-4 text-blue-500" /> : <Ghost className="w-4 h-4 text-gray-500" />}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1 max-w-[200px]">
-                            Opt-out of ranking entirely.
-                        </p>
-                    </div>
-                    <Button 
-                        type="button"
-                        onClick={handleParticipationToggle}
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                            "border-gray-700 bg-transparent min-w-[90px]",
-                            isParticipating ? "text-blue-500 hover:text-blue-400" : "text-red-400 hover:text-red-300"
-                        )}
-                    >
-                        {isParticipating ? "Active" : "Off"}
-                    </Button>
-                </div>
+                <p className="text-xs text-gray-500 mt-1 max-w-[200px]">
+                  Opt-out of ranking entirely.
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={handleParticipationToggle}
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "border-gray-700 bg-transparent min-w-[90px]",
+                  isParticipating ? "text-blue-500 hover:text-blue-400" : "text-red-400 hover:text-red-300"
+                )}
+              >
+                {isParticipating ? "Active" : "Off"}
+              </Button>
             </div>
+          </div>
         </div>
       </div>
 
       {/* RIGHT COLUMN: SECURITY */}
       <div className="space-y-6">
-         <div className="bg-[#191919] border border-gray-800 rounded-xl p-6 h-fit">
-            <div className="flex items-center gap-2 mb-6">
-                <Lock className="w-5 h-5 text-red-500" />
-                <h2 className="text-lg font-bold text-white">Security & Login</h2>
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-6 h-fit">
+          <div className="flex items-center gap-2 mb-6">
+            <Lock className="w-5 h-5 text-red-500" />
+            <h2 className="text-lg font-bold text-white">Security & Login</h2>
+          </div>
+
+          <p className="text-sm text-gray-400 mb-6">
+            Update your password to keep your account secure. If you forgot your current password, you must logout and use the "Forgot Password" flow.
+          </p>
+
+          <form onSubmit={handleUpdatePassword} className="space-y-6">
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <label className="text-xs font-bold text-gray-500 uppercase">New Password</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="bg-black/50 border-white/10 text-gray-200 h-11 focus:border-cyan-500/50"
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-xs font-bold text-gray-500 uppercase">Confirm Password</label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="bg-black/50 border-white/10 text-gray-200 h-11 focus:border-cyan-500/50"
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                />
+              </div>
             </div>
 
-            <p className="text-sm text-gray-400 mb-6">
-                Update your password to keep your account secure. If you forgot your current password, you must logout and use the "Forgot Password" flow.
-            </p>
-
-            <form onSubmit={handleUpdatePassword} className="space-y-6">
-                <div className="space-y-4">
-                    <div className="grid gap-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">New Password</label>
-                        <Input 
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            className="bg-[#111] border-gray-700 text-white h-11"
-                            placeholder="••••••••"
-                            required
-                            minLength={6}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Confirm Password</label>
-                        <Input 
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="bg-[#111] border-gray-700 text-white h-11"
-                            placeholder="••••••••"
-                            required
-                            minLength={6}
-                        />
-                    </div>
-                </div>
-
-                <div className="pt-2 border-t border-gray-800 mt-6">
-                    <Button 
-                        disabled={loadingPassword || !newPassword} 
-                        className="w-full bg-red-900/10 text-red-400 border border-red-900/50 hover:bg-red-900/20 hover:text-red-300 h-11"
-                    >
-                        {loadingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
-                        Update Password
-                    </Button>
-                </div>
-            </form>
-         </div>
+            <div className="pt-2 border-t border-gray-800 mt-6">
+              <Button
+                disabled={loadingPassword || !newPassword}
+                className="w-full bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 hover:text-red-300 h-11"
+              >
+                {loadingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
+                Update Password
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
-
     </div>
+
+
   );
 }
