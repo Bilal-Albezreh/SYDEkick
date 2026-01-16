@@ -138,22 +138,21 @@
 
   /* Light Mode Override */
   :root[class~="light"] body {
-    @apply bg-slate-50 text-slate-900;
+    @apply text-slate-900;
 
-    /* Light Mode Glass Variables */
-    --glass-border-light: 1px solid rgba(255, 255, 255, 0.4);
-    --glass-shadow-light: 0 8px 32px rgba(31, 38, 135, 0.1);
-
-    /* Morning Aurora (Light) */
+    background-color: #F1F5F9;
+    /* Slate-100 (A cool grey-white base) */
     background-image:
-      radial-gradient(circle at 0% 0%, rgba(219, 234, 254, 0.8), transparent 50%),
-      /* Blue-100 */
-      radial-gradient(circle at 100% 0%, rgba(233, 213, 255, 0.8), transparent 50%),
-      /* Purple-100 */
-      radial-gradient(circle at 100% 100%, rgba(254, 249, 195, 0.6), transparent 50%),
-      /* Yellow-100 */
-      radial-gradient(circle at 0% 100%, rgba(204, 251, 241, 0.6), transparent 50%);
-    /* Teal-100 */
+      radial-gradient(at 0% 0%, rgba(186, 230, 253, 0.6) 0px, transparent 50%),
+      /* Sky Blue */
+      radial-gradient(at 100% 0%, rgba(199, 210, 254, 0.6) 0px, transparent 50%),
+      /* Indigo */
+      radial-gradient(at 100% 100%, rgba(224, 242, 254, 0.5) 0px, transparent 50%);
+    /* Light Cyan */
+
+    background-attachment: fixed;
+    --glass-border-light: 1px solid rgba(255, 255, 255, 0.5);
+    --glass-shadow-light: 0 8px 32px rgba(31, 38, 135, 0.05);
   }
 }
 
