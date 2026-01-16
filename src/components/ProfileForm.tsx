@@ -4,9 +4,10 @@ import { useState, useRef } from "react";
 import { updateProfile, togglePrivacy, updateUserPassword, uploadAvatar, toggleParticipation } from "@/app/actions/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { User, Shield, Save, Loader2, Eye, EyeOff, Lock, KeyRound, Camera, Ghost, Trophy } from "lucide-react";
+import { User, Shield, Save, Loader2, Eye, EyeOff, Lock, KeyRound, Camera, Ghost, Trophy, Palette, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/context/ThemeContext";
 
 interface ProfileProps {
   user: {
@@ -26,6 +27,8 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
   const [isAnon, setIsAnon] = useState(profile.is_anonymous);
   const [isParticipating, setIsParticipating] = useState(profile.is_participating ?? true);
   const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const { theme, toggleTheme } = useTheme();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
   const [uploading, setUploading] = useState(false);
@@ -352,9 +355,54 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
             </div>
           </form>
         </div>
+
+
+        {/* 3. APPEARANCE (THEME) - INSIDE RIGHT COLUMN */}
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-6 h-fit mt-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Palette className="w-5 h-5 text-purple-500" />
+            <h2 className="text-lg font-bold text-white">Interface Theme</h2>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/5">
+            <div>
+              <div className="font-bold text-gray-200">
+                {theme === "dark" ? "Dark Space (Aurora)" : "Light Ice (Glacial)"}
+              </div>
+              <p className="text-xs text-gray-500 mt-1 max-w-[200px]">
+                Switch between the classic dark mode and the new high-visibility light mode.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 bg-black/50 p-1 rounded-full border border-white/10">
+              <button
+                type="button"
+                onClick={() => theme === 'light' && toggleTheme()}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2",
+                  theme === 'dark'
+                    ? "bg-gray-700 text-white shadow-lg"
+                    : "text-gray-500 hover:text-gray-300"
+                )}
+              >
+                <Ghost className="w-3 h-3" /> Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => theme === 'dark' && toggleTheme()}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2",
+                  theme === 'light'
+                    ? "bg-slate-200 text-slate-800 shadow-lg"
+                    : "text-gray-500 hover:text-gray-300"
+                )}
+              >
+                <Sun className="w-3 h-3" /> Light
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-
   );
 }
