@@ -101,13 +101,16 @@ const getAssessmentType = (name: string, type?: string) => {
 // Returns "YYYY-MM-DD" strictly without timezone shifting
 const getItemDateKey = (dateInput: string | Date | null | undefined): string | null => {
     if (!dateInput) return null;
-    if (typeof dateInput === 'string') {
-        return dateInput.split('T')[0]; // Safe for DB ISO strings "2026-02-15T..."
-    }
-    // If it's a Date object (rarely passed here but cover it)
-    const year = dateInput.getFullYear();
-    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
-    const day = String(dateInput.getDate()).padStart(2, '0');
+
+    // [FIX] Always parse to a generic Date object first to respect the browser's Local Timezone.
+    // This prevents "Date Drift" where 8PM EST (1AM UTC Next Day) would show up on the next day.
+    const date = new Date(dateInput);
+
+    if (isNaN(date.getTime())) return null;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
 
@@ -138,6 +141,10 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const [rescheduleItem, setRescheduleItem] = useState<any>(null);
     const [rescheduleDate, setRescheduleDate] = useState("");
 
+    // Refs for programmatic date picker access
+    const newTaskDateRef = useRef<HTMLInputElement>(null);
+    const rescheduleDateRef = useRef<HTMLInputElement>(null);
+
     const handleRescheduleClick = (item: any, e: React.MouseEvent) => {
         e.stopPropagation();
         setRescheduleItem(item);
@@ -159,13 +166,41 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         if (!rescheduleItem || !rescheduleDate) return;
 
         try {
+            console.log("[Reschedule] Starting for item:", rescheduleItem);
+
             let datePayload = rescheduleDate;
-            // For Interviews, convert Local Input to UTC ISO to preserve Time
-            if (rescheduleItem.type === 'interview' || rescheduleItem.type === 'oa') {
+            // Explicitly resolve type to ensure we catch OA/Interview correctly
+            const itemType = rescheduleItem.type || 'assessment';
+
+            // UNIFIED HANDLER LOGIC
+            // 1. Career Events (Time-Centric) -> Keep Exact Time
+            if (itemType === 'interview' || itemType === 'oa') {
                 datePayload = new Date(rescheduleDate).toISOString();
             }
+            // 2. Assignments/Tasks (Date-Centric) -> Force Noon Local Time
+            else {
+                const d = new Date(rescheduleDate);
+                d.setHours(12, 0, 0, 0); // Force Noon
+                datePayload = d.toISOString();
+            }
 
-            await updateItemDateDirect(rescheduleItem.id || rescheduleItem.uniqueId.split('-')[1], rescheduleItem.type || 'assessment', datePayload);
+            // Extract ID safely - Handle UUIDs which contain hyphens!
+            // uniqueId format is "type-uuid", so splitting by "-" breaks the UUID itself if we only take [1]
+            const itemId = rescheduleItem.id || (
+                rescheduleItem.uniqueId
+                    ? rescheduleItem.uniqueId.split('-').slice(1).join('-')
+                    : null
+            );
+
+            if (!itemId) {
+                console.error("[Reschedule] Could not resolve Item ID");
+                return;
+            }
+
+            console.log(`[Reschedule] Payload: ID=${itemId}, Type=${itemType}, Date=${datePayload}`);
+
+            await updateItemDateDirect(itemId, itemType, datePayload);
+
             setIsRescheduleOpen(false);
             setRescheduleItem(null);
             router.refresh();
@@ -212,14 +247,17 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 // Timezone Agnostic Key
                 const dateKey = getItemDateKey(i.interview_date);
 
-                // Safe Time Display (Manually parse string to avoid Date obj shift)
+                // Safe Time Display (Respect Local Timezone)
                 let timeStr = "";
                 try {
-                    const timePart = i.interview_date.split('T')[1];
-                    if (timePart) {
-                        const [h, m] = timePart.split(':');
-                        const H = parseInt(h);
-                        timeStr = `${H % 12 || 12}:${m} ${H >= 12 ? 'PM' : 'AM'}`;
+                    if (i.interview_date) {
+                        const dateObj = new Date(i.interview_date);
+                        // Format: "2:00 PM"
+                        timeStr = dateObj.toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                        });
                     }
                 } catch (e) { }
 
@@ -598,9 +636,24 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         <button onClick={prevMonth} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"><ChevronLeft className="w-4 h-4" /></button>
                         <button onClick={nextMonth} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"><ChevronRight className="w-4 h-4" /></button>
                     </div>
-                    <div className="text-xl font-bold text-white tracking-tight">
-                        {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    {/* [UPDATED] Date Picker Trigger - Wraps the text with a hidden date input */}
+                    <div className="relative group cursor-pointer">
+                        <div className="text-xl font-bold text-white tracking-tight group-hover:text-blue-400 transition-colors">
+                            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </div>
+                        <input
+                            type="date"
+                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                            onChange={(e) => {
+                                if (e.target.value) {
+                                    // Set date to selected value (Month jump)
+                                    // Use T12:00:00 to avoid timezone drift on simple date selection
+                                    setCurrentDate(new Date(`${e.target.value}T12:00:00`));
+                                }
+                            }}
+                        />
                     </div>
+
                     <button onClick={jumpToToday} className="text-[10px] font-bold bg-white/10 text-gray-300 px-3 py-1 rounded-full border border-white/5 hover:bg-white/20 transition-colors tracking-wide">
                         TODAY
                     </button>
@@ -608,6 +661,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 bg-black/40 pl-3 pr-1 py-1 rounded-full border border-gray-800">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden md:inline">Show Done</span>
+
                         <Switch checked={showCompleted} onCheckedChange={setShowCompleted} className="scale-75" />
                     </div>
                     <div className="h-6 w-px bg-gray-800 hidden md:block" />
@@ -801,12 +855,22 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-500 uppercase">Date</label>
-                            <Input
-                                type="date"
-                                value={newTaskData.due_date}
-                                onChange={(e) => setNewTaskData({ ...newTaskData, due_date: e.target.value })}
-                                className="bg-[#0a0a0a] border-gray-800"
-                            />
+                            <div className="relative group">
+                                <Input
+                                    ref={newTaskDateRef}
+                                    type="date"
+                                    value={newTaskData.due_date}
+                                    onChange={(e) => setNewTaskData({ ...newTaskData, due_date: e.target.value })}
+                                    className="bg-[#0a0a0a] border-gray-800 text-white [&::-webkit-calendar-picker-indicator]:hidden"
+                                />
+                                {/* Custom Clickable Overlay */}
+                                <div
+                                    className="absolute right-0 top-0 h-full w-1/2 flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-r-md transition-colors"
+                                    onClick={() => (newTaskDateRef.current as any)?.showPicker?.()}
+                                >
+                                    <CalendarIcon className="w-5 h-5 text-white" />
+                                </div>
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -840,12 +904,22 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         </div>
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-500 uppercase">New Date & Time</label>
-                            <Input
-                                type="datetime-local"
-                                value={rescheduleDate}
-                                onChange={(e) => setRescheduleDate(e.target.value)}
-                                className="bg-[#0a0a0a] border-gray-800 text-white"
-                            />
+                            <div className="relative group">
+                                <Input
+                                    ref={rescheduleDateRef}
+                                    type="datetime-local"
+                                    value={rescheduleDate}
+                                    onChange={(e) => setRescheduleDate(e.target.value)}
+                                    className="bg-[#0a0a0a] border-gray-800 text-white [&::-webkit-calendar-picker-indicator]:hidden"
+                                />
+                                {/* Custom Clickable Overlay */}
+                                <div
+                                    className="absolute right-0 top-0 h-full w-1/2 flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-r-md transition-colors"
+                                    onClick={() => (rescheduleDateRef.current as any)?.showPicker?.()}
+                                >
+                                    <CalendarIcon className="w-5 h-5 text-white" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>
