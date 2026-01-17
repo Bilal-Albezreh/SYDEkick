@@ -159,13 +159,35 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         if (!rescheduleItem || !rescheduleDate) return;
 
         try {
+            console.log("[Reschedule] Starting for item:", rescheduleItem);
+
             let datePayload = rescheduleDate;
-            // For Interviews, convert Local Input to UTC ISO to preserve Time
-            if (rescheduleItem.type === 'interview' || rescheduleItem.type === 'oa') {
+            // Explicitly resolve type to ensure we catch OA/Interview correctly
+            const itemType = rescheduleItem.type || 'assessment';
+
+            // For Interviews/OA, convert Local Input to UTC ISO to preserve Time
+            // For Assignments/Tasks, we usually just want the date or handle time differently
+            if (itemType === 'interview' || itemType === 'oa') {
                 datePayload = new Date(rescheduleDate).toISOString();
             }
 
-            await updateItemDateDirect(rescheduleItem.id || rescheduleItem.uniqueId.split('-')[1], rescheduleItem.type || 'assessment', datePayload);
+            // Extract ID safely - Handle UUIDs which contain hyphens!
+            // uniqueId format is "type-uuid", so splitting by "-" breaks the UUID itself if we only take [1]
+            const itemId = rescheduleItem.id || (
+                rescheduleItem.uniqueId
+                    ? rescheduleItem.uniqueId.split('-').slice(1).join('-')
+                    : null
+            );
+
+            if (!itemId) {
+                console.error("[Reschedule] Could not resolve Item ID");
+                return;
+            }
+
+            console.log(`[Reschedule] Payload: ID=${itemId}, Type=${itemType}, Date=${datePayload}`);
+
+            await updateItemDateDirect(itemId, itemType, datePayload);
+
             setIsRescheduleOpen(false);
             setRescheduleItem(null);
             router.refresh();
