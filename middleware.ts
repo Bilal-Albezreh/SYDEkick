@@ -140,25 +140,29 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const path = request.nextUrl.pathname;
 
-  // 1. PUBLIC ROUTES: Allow these always
-  if (path === "/login" || path === "/auth/callback" || path === "/locked") {
-    // If logged in and trying to access /login, skip to dashboard
-    if (session && path === "/login") {
+  // ====================================================================
+  // PUBLIC ROUTES: Allow unauthenticated access to these paths
+  // ====================================================================
+  const publicRoutes = ["/", "/login", "/auth/callback", "/locked"];
+
+  if (publicRoutes.includes(path)) {
+    // If logged in and trying to access the landing page or login, redirect to dashboard
+    if (session && (path === "/" || path === "/login")) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
+    // Allow public access
     return response;
   }
 
-  // 2. AUTH PROTECTION: If no session, go to login
+  // ====================================================================
+  // PROTECTED ROUTES: Require authentication for /dashboard, /tracker, etc.
+  // ====================================================================
   if (!session) {
+    // No session found - redirect to login
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // 3. NEW STRUCTURE REDIRECT: Ensure "/" goes to "/dashboard"
-  if (path === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
+  // User is authenticated - allow access to protected routes
   return response;
 }
 
