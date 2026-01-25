@@ -18,12 +18,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // --- WIDGET 1: DAILY QUOTE ---
 export function QuoteWidget() {
   const quotes = [
-    "If you have 0 on one side and you are trying to prove both sides are equal to each other, the best way to do so is multiply the other side by 0 - Omar Soliman",
-    "Lets stop being like Dora",
-    "Today is a decent day to get some studying done.",
-    "Ooooooooooooooh Chriiiiiiiiiiiiiis - Raed Rahman",
-    "Lets lock in to make to Africa in 3b",
-    "Cant be failing courses in 2026"
+    // "If you have 0 on one side and you are trying to prove both sides are equal to each other, the best way to do so is multiply the other side by 0 - Omar Soliman",
+    // "Lets stop being like Dora",
+    // "Today is a decent day to get some studying done.",
+    // "Ooooooooooooooh Chriiiiiiiiiiiiiis - Raed Rahman",
+    // "Lets lock in to make to Africa in 3b",
+    // "Cant be failing courses in 2026"
+    "The secret of getting ahead is getting started.",
+    "Whatever you do, do it well.",
+    "Believe you can and you're halfway there."
+
   ];
   // Stable random based on day
   const dayIndex = new Date().getDate() % quotes.length;

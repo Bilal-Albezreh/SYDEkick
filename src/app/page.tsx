@@ -1,71 +1,74 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, GraduationCap } from "lucide-react";
-import { createClient } from "@/utils/supabase/server"; // Added logic
-import { redirect } from "next/navigation"; // Added logic
+import Image from "next/image";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
+import {
+  Calendar,
+  TrendingUp,
+  Folder,
+  Columns3,
+  CheckCircle2,
+  ArrowRight
+} from "lucide-react";
+import WaitlistForm from "@/components/WaitlistForm";
+import FeatureStack from "@/components/FeatureStack";
+import MorphNav from "@/components/landing/MorphNav";
+import AuroraBackground from "@/components/landing/AuroraBackground";
+import TrustedBy from "@/components/landing/TrustedBy";
 
 export default async function Home() {
-  // --- NEW LOGIC START ---
-  // If user is already logged in, skip the landing page and go to dashboard
+  // Redirect authenticated users to dashboard
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (user) {
     redirect("/dashboard");
   }
-  // --- NEW LOGIC END ---
 
   return (
-    <main className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden">
-      
-      {/* Background Gradients */}
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-800 via-black to-black opacity-40 z-0"></div>
-      
-      <div className="z-10 text-center space-y-8 p-6 max-w-2xl">
-        {/* Icon */}
-        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto shadow-2xl shadow-white/20 rotate-3">
-          <GraduationCap className="w-8 h-8 text-black" />
-        </div>
+    <main className="min-h-screen text-white relative overflow-x-clip">
 
-        {/* Text */}
-        <div className="space-y-4">
-          <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tighter">
-            Syde<span className="text-gray-500">Kick.</span>
+      {/* Aurora Background */}
+      <AuroraBackground />
+
+      {/* Morphing Navbar */}
+      <MorphNav />
+
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 px-6">
+        <div className="max-w-6xl mx-auto text-center">
+          {/* Hero Text */}
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400">
+            The Ultimate Sidekick for your University Degree.
           </h1>
-          <p className="text-gray-400 text-lg md:text-xl font-light">
-            The all-in-one operating system for your academic term. <br/>
-            Track grades, visualize deadlines, and compete.
+          <p className="mt-6 text-xl text-zinc-400 leading-relaxed max-w-2xl mx-auto">
+            Grades, Calendar, Co-op, Focus, and Leaderboards. The all-in-one OS engineered for students to dominate their degree.
+          </p>
+
+          {/* Waitlist Form */}
+          <WaitlistForm />
+        </div>
+      </section>
+
+      {/* Feature Stack with Perspective and Glow */}
+      {/* <FeatureStack showHeader={false} /> */}
+
+      {/* Trusted By - Floating Glass Capsule */}
+      <TrustedBy />
+
+
+
+      {/* Footer */}
+      <footer className="py-16 px-6 border-t border-white/5">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-xs text-zinc-700 font-mono uppercase tracking-widest">
+            Systems Design Engineering 2029
           </p>
         </div>
-
-        {/* Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
-          
-          {/* 1. Login Button */}
-          <Link href="/login" className="w-full sm:w-auto">
-            <Button className="w-full h-12 px-8 text-base font-bold rounded-full bg-white text-black hover:bg-gray-200 transition-transform hover:scale-105">
-              Login
-            </Button>
-          </Link>
-
-          {/* 2. Create Account */}
-          <Link href="/login?view=signup" className="w-full sm:w-auto">
-             <Button 
-                variant="outline" 
-                className="w-full h-12 px-8 text-base font-medium rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-black transition-all"
-             >
-                Create Account <ArrowRight className="w-4 h-4 ml-2" />
-             </Button>
-          </Link>
-
-        </div>
-      </div>
-      
-      {/* Footer */}
-      <div className="absolute bottom-8 text-xs text-gray-700 font-mono">
-        SYSTEMS DESIGN ENGINEERING 2029
-      </div>
+      </footer>
 
     </main>
   );
 }
+
+
