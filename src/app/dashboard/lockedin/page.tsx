@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Play, Pause, RotateCcw, ArrowLeft, CheckCircle2, Laptop, BookOpen, X, Handshake, User } from "lucide-react"; // Added User icon
+import { toast } from "sonner";
+import { Play, Pause, RotateCcw, ArrowLeft, CheckCircle2, Laptop, BookOpen, X, Handshake, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { getUpcomingTasks, startFocusSession, endFocusSession, completeAssessment } from "@/app/actions/focus"; // [UPDATED] Removed getSquadStatus
+import { getUpcomingTasks, startFocusSession, endFocusSession, completeAssessment, logFocusSession } from "@/app/actions/focus";
 
 export default function LockedInPage() {
     const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
@@ -42,6 +43,8 @@ export default function LockedInPage() {
         // [REMOVED] Squad Polling
     }, []);
 
+    const [sessionComplete, setSessionComplete] = useState(false);
+
     // 2. Timer Logic (Optimized)
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -52,7 +55,7 @@ export default function LockedInPage() {
                     if (prev <= 1) {
                         clearInterval(interval);
                         setIsActive(false);
-                        handleSessionComplete();
+                        setSessionComplete(true); // Trigger completion in next effect
                         return 0;
                     }
                     return prev - 1;
@@ -62,6 +65,14 @@ export default function LockedInPage() {
 
         return () => clearInterval(interval);
     }, [isActive]);
+
+    // 2b. Handle session completion (outside of setState)
+    useEffect(() => {
+        if (sessionComplete) {
+            setSessionComplete(false);
+            handleSessionComplete();
+        }
+    }, [sessionComplete]);
 
     const resetTimer = () => { setIsActive(false); setTimeLeft(MODES[mode].minutes * 60); };
     const switchMode = (m: "focus" | "short" | "long") => { setMode(m); setIsActive(false); setTimeLeft(MODES[m].minutes * 60); };
@@ -86,19 +97,40 @@ export default function LockedInPage() {
     // ...
 
     const handleSessionComplete = async () => {
-        // [NEW] End Session on DB
-        if (sessionId) {
-            await endFocusSession(sessionId, MODES[mode].minutes);
-            setSessionId(null);
-        } else {
-            // Fallback if session failed to start? Just log it? 
-            // For now assume sessionId exists if flow worked.
-        }
+        let sessionLogged = false;
 
-        if (linkedId) {
-            setShowCompletionModal(true);
+        try {
+            if (sessionId) {
+                // Normal path: end existing session
+                await endFocusSession(sessionId, MODES[mode].minutes);
+                setSessionId(null);
+                sessionLogged = true;
+            } else {
+                // Fallback: log session directly if startFocusSession failed
+                const result = await logFocusSession(MODES[mode].minutes, objective || "Locked In");
+                sessionLogged = result.success;
+            }
+
+            // Show toast notification
+            if (sessionLogged) {
+                toast.success(`Session Logged! +${MODES[mode].minutes} minutes`, {
+                    description: "Your focus time has been recorded.",
+                });
+            } else {
+                toast.error("Failed to log session", {
+                    description: "Please check your connection and try again.",
+                });
+            }
+
+            if (linkedId) {
+                setShowCompletionModal(true);
+            }
+        } catch (error) {
+            console.error("Session completion error:", error);
+            toast.error("Failed to log session", {
+                description: "An error occurred. Please try again.",
+            });
         }
-        // Optional: Play a sound here
     };
 
     const finalizeTask = async () => {

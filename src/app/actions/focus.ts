@@ -131,19 +131,68 @@ export async function endFocusSession(sessionId: string, duration: number) {
   // Update status to completed
   await supabase.from("focus_sessions").update({
     is_completed: true,
-    // Optional: Update duration if they stopped early? For now keep original duration or passed one.
-    // duration_minutes: duration 
   }).eq("id", sessionId);
 
-  // Increment Leaderboard
-  const { error } = await supabase.rpc('increment_focus_minutes', {
-    user_id_input: user.id,
-    minutes: duration
-  });
+  // Increment Leaderboard (direct update to profiles.weekly_focus_minutes)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("weekly_focus_minutes")
+    .eq("id", user.id)
+    .single();
+
+  const currentMinutes = profile?.weekly_focus_minutes || 0;
+  const { error } = await supabase
+    .from("profiles")
+    .update({ weekly_focus_minutes: currentMinutes + duration })
+    .eq("id", user.id);
 
   if (error) console.error("❌ Leaderboard update failed:", error.message);
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/leaderboard");
+}
+
+// 3b. Fallback: Log Session Directly (for cases where startFocusSession failed)
+export async function logFocusSession(minutes: number, objective?: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  const now = new Date();
+  const startedAt = new Date(now.getTime() - minutes * 60 * 1000);
+
+  // 1. Insert completed session
+  const { error: insertError } = await supabase.from("focus_sessions").insert({
+    user_id: user.id,
+    duration_minutes: minutes,
+    objective_name: objective || "Locked In",
+    is_completed: true,
+    started_at: startedAt.toISOString(),
+  });
+
+  if (insertError) {
+    console.error("Failed to log session:", insertError);
+    return { success: false, error: insertError.message };
+  }
+
+  // 2. Update leaderboard (direct update to profiles.weekly_focus_minutes)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("weekly_focus_minutes")
+    .eq("id", user.id)
+    .single();
+
+  const currentMinutes = profile?.weekly_focus_minutes || 0;
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ weekly_focus_minutes: currentMinutes + minutes })
+    .eq("id", user.id);
+
+  if (updateError) console.error("Leaderboard update failed:", updateError.message);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/leaderboard");
+  return { success: true };
 }
 
 // 4. Mark Assessment/Task Done (Unchanged)
