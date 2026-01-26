@@ -357,7 +357,7 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
         </div>
 
 
-        {/* 3. APPEARANCE (THEME) - INSIDE RIGHT COLUMN */}
+        {/* 3. APPEARANCE (THEME) - PAUSED FOR NOW
         <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-6 h-fit mt-6">
           <div className="flex items-center gap-2 mb-6">
             <Palette className="w-5 h-5 text-purple-500" />
@@ -402,6 +402,7 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
             </div>
           </div>
         </div>
+        */}
       </div>
     </div>
   );
