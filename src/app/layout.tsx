@@ -1,11 +1,15 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
 
 const inter = Inter({ subsets: ["latin"] });
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space"
+});
 
 export const metadata: Metadata = {
   title: "SydeKick",
@@ -20,7 +24,7 @@ export default function RootLayout({
   // PURE SHELL - No logic here
   return (
     <html lang="en">
-      <body className={`${inter.className} text-gray-200`}>
+      <body className={`${inter.className} ${spaceGrotesk.variable} text-gray-200`}>
         <ThemeProvider>
           {children}
           <Toaster position="top-right" theme="dark" />

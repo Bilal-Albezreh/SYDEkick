@@ -15,15 +15,30 @@ import FeatureStack from "@/components/FeatureStack";
 import MorphNav from "@/components/landing/MorphNav";
 import AuroraBackground from "@/components/landing/AuroraBackground";
 import TrustedBy from "@/components/landing/TrustedBy";
+import SetupWizard from "@/components/onboarding/SetupWizard";
 
 export default async function Home() {
-  // Redirect authenticated users to dashboard
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // If user is logged in, check if they have an active term
   if (user) {
-    redirect("/dashboard");
+    const { data: activeTerm } = await supabase
+      .from("terms")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_current", true)
+      .maybeSingle();
+
+    if (activeTerm) {
+      // Has active term - go to dashboard
+      redirect("/dashboard");
+    } else {
+      // No active term - show setup wizard
+      return <SetupWizard />;
+    }
   }
+
 
   return (
     <main className="min-h-screen text-white relative overflow-x-clip">

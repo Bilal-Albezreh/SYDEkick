@@ -70,7 +70,7 @@ export default function SidebarLight() {
 
                 {/* Header / Logo */}
                 <div className="h-16 flex items-center justify-center relative px-6 border-b border-stone-200/50 bg-gradient-to-b from-white/40 to-transparent">
-                    <span className="font-bold text-2xl tracking-tighter text-stone-800">
+                    <span className="font-heading font-bold text-2xl tracking-tighter text-stone-800">
                         Syde<span className="text-blue-600">Kick</span>
                     </span>
                     {isMobile && (
@@ -91,7 +91,7 @@ export default function SidebarLight() {
                                 href={link.href}
                                 onClick={() => isMobile && setOpen(false)}
                                 className={cn(
-                                    "flex items-center gap-3 px-3 py-3 mx-3 rounded-xl text-sm font-semibold transition-all duration-200 group",
+                                    "font-heading flex items-center gap-3 px-3 py-3 mx-3 rounded-xl text-sm font-semibold transition-all duration-200 group",
                                     isActive
                                         ? "bg-white text-blue-700 border border-white/60 shadow-[0_4px_12px_rgba(59,130,246,0.15)]"
                                         : "text-stone-600 hover:bg-stone-200/40 hover:text-stone-900"

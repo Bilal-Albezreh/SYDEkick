@@ -70,7 +70,7 @@ export default function SidebarDark() {
 
                 {/* Header / Logo */}
                 <div className="h-16 flex items-center justify-center relative px-6 border-b border-white/5">
-                    <span className="font-bold text-2xl tracking-tighter text-white">
+                    <span className="font-heading font-bold text-2xl tracking-tighter text-white">
                         Syde<span className="text-blue-500">Kick</span>
                     </span>
                     {isMobile && (
@@ -91,7 +91,7 @@ export default function SidebarDark() {
                                 href={link.href}
                                 onClick={() => isMobile && setOpen(false)}
                                 className={cn(
-                                    "flex items-center gap-3 px-3 py-3 mx-3 rounded-xl text-sm font-medium transition-all duration-200",
+                                    "font-heading flex items-center gap-3 px-3 py-3 mx-3 rounded-xl text-sm font-medium transition-all duration-200",
                                     isActive
                                         ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-white border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
                                         : "text-gray-300 hover:text-white hover:bg-white/10"

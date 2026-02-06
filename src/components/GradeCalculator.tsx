@@ -3,12 +3,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { updateAssessmentScore } from "@/app/actions/index";
-import { Loader2, TrendingUp, RotateCcw, BarChart3, Calculator, LayoutGrid } from "lucide-react";
+import { Loader2, TrendingUp, RotateCcw, BarChart3, Calculator, LayoutGrid, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts";
+import AddCourseModal from "@/components/dashboard/AddCourseModal";
 
 // --- RULES ENGINE CONFIGURATION ---
 const COURSE_RULES: Record<string, any[]> = {
@@ -46,6 +47,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
   const [isHypothetical, setIsHypothetical] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showChart, setShowChart] = useState(false);
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -303,6 +305,13 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
             <button onClick={() => setViewMode("overview")} className={cn("w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all border-l-4", viewMode === "overview" ? "border-cyan-500 bg-gradient-to-r from-cyan-500/10 to-transparent text-cyan-400 font-bold" : "border-transparent text-gray-400 hover:bg-white/5")}>
               <BarChart3 className="w-4 h-4" /><span>Term Overview</span>
             </button>
+            <button
+              onClick={() => setIsAddCourseModalOpen(true)}
+              className="w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all border-l-4 border-transparent text-gray-400 hover:bg-cyan-500/10 hover:text-cyan-400 hover:border-cyan-500"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Course</span>
+            </button>
             <div className="h-px bg-gray-800 my-2 mx-2" />
             {courses.map((course) => {
               const stats = getCourseStats(course);
@@ -310,7 +319,10 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
               return (
                 <button key={course.id} onClick={() => { setSelectedCourseId(course.id); setViewMode("detail"); }} className={cn("w-full flex items-center justify-between p-3 rounded-lg text-left transition-all border-l-4 group", isSelected ? "border-cyan-500 bg-gradient-to-r from-cyan-500/10 to-transparent" : "border-transparent hover:bg-white/5 text-gray-400")}>
                   <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-8 rounded-full bg-gradient-to-b from-blue-500 to-cyan-400 shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
+                    <div
+                      className="w-1.5 h-8 rounded-full shadow-[0_0_8px_rgba(56,189,248,0.5)]"
+                      style={{ backgroundColor: course.color }}
+                    />
                     <div className="min-w-0">
                       <div className={cn("font-bold text-sm truncate transition-colors", isSelected ? "text-white" : "text-gray-300 group-hover:text-white")}>{course.course_code}</div>
                     </div>
@@ -478,6 +490,11 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
           )}
         </div>
       </div>
+
+      <AddCourseModal
+        isOpen={isAddCourseModalOpen}
+        onClose={() => setIsAddCourseModalOpen(false)}
+      />
     </div>
   );
 }

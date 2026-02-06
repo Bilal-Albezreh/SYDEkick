@@ -1,19 +1,24 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, DragStartEvent } from "@dnd-kit/core";
+import { DraggableCard, DroppableDay } from "@/components/calendar/DraggableComponents";
+import { updateAssessmentDate } from "@/app/actions/assessments";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, Check, Clock, ExternalLink, Filter, X, Briefcase, Handshake, Laptop, Plus, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toggleAssessmentCompletion } from "@/app/actions/index";
 import { updateItemDate as updateItemDateDirect } from "@/app/actions/focus";
+import { updateAssessmentDetails } from "@/app/actions/assessments";
 import { toggleInterviewComplete } from "@/app/actions/career";
 import { Switch } from "@/components/ui/switch";
 
-import { createPersonalTask, deletePersonalTask, togglePersonalTaskCompletion } from "@/app/actions/calendar";
+import { createPersonalTask, deletePersonalTask, togglePersonalTaskComplete, updatePersonalTaskDate } from "@/app/actions/personalTasks";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRouter } from "next/navigation";
+
 
 
 // --- CONFIGURATION ---
@@ -118,7 +123,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const router = useRouter(); // For refresh
     // 1. STATE
     const [viewMode, setViewMode] = useState<"month" | "list">("month");
-    const [currentDate, setCurrentDate] = useState(new Date("2026-01-01T00:00:00"));
+    const [currentDate, setCurrentDate] = useState(new Date());
     const [showCompleted, setShowCompleted] = useState(false);
     const [courses, setCourses] = useState(initialData);
     const [interviews, setInterviews] = useState(initialInterviews || []);
@@ -136,40 +141,178 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         description: "" // Optional
     });
 
-    // [NEW] RESCHEDULE STATE
+    // [NEW] EDIT EVENT MODAL STATE (Date + Grade)
     const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
     const [rescheduleItem, setRescheduleItem] = useState<any>(null);
     const [rescheduleDate, setRescheduleDate] = useState("");
+    const [rescheduleScore, setRescheduleScore] = useState<string>(""); // For grade input
+
+    // [DND] Drag-and-Drop State
+    const [activeDragId, setActiveDragId] = useState<string | null>(null);
+    const [isPending, startTransition] = useTransition();
+
+    // [DND] Sensors: Distance-based for responsive feel
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // < 8px = Click, > 8px = Drag (prevents accidental drags)
+            },
+        })
+    );
 
     // Refs for programmatic date picker access
     const newTaskDateRef = useRef<HTMLInputElement>(null);
     const rescheduleDateRef = useRef<HTMLInputElement>(null);
 
+    // Auto-scroll to today's cell on mount
+    useEffect(() => {
+        const todayCell = document.getElementById('today-cell');
+        if (todayCell) {
+            todayCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, []); // Only run on mount
+
     const handleRescheduleClick = (item: any, e: React.MouseEvent) => {
         e.stopPropagation();
         setRescheduleItem(item);
 
-        const targetDate = item.originalDate || item.due_date;
-
+        // [FIX] Smart Initialization
+        // Interviews: Preserve Time (use timezone offset hack)
+        // Assessments/Tasks: Force Noon (prevent Midnight Drift from legacy data)
         if (item.type === 'interview' || item.type === 'oa') {
-            const d = new Date(targetDate);
+            const d = new Date(item.due_date);
             d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
             setRescheduleDate(d.toISOString().slice(0, 16));
         } else {
-            const dateStr = targetDate.split('T')[0];
+            const dateStr = item.due_date.split('T')[0];
             setRescheduleDate(`${dateStr}T12:00`);
         }
+
+        // Initialize score if it's an assessment
+        setRescheduleScore(item.score?.toString() || "");
+
         setIsRescheduleOpen(true);
+    };
+
+    // [DND] Drag-and-Drop Handlers
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveDragId(event.active.id as string);
+    };
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveDragId(null);
+
+        if (!over) return;
+
+        const activeId = active.id as string;
+        const overDate = over.id as string; // DroppableDay id = date string (YYYY-MM-DD)
+
+        // Check if it's a personal task (activeId may contain temp prefix from safe ID)
+        let personalTask = null;
+        if (activeId.startsWith('temp-')) {
+            // Extract the real unique ID from temp ID
+            const uniqueId = activeId.split('-').slice(1).join('-');
+            if (uniqueId.startsWith('personal-')) {
+                const realId = uniqueId.replace('personal-', '');
+                personalTask = personalTasks.find((p: any) => p.id === realId);
+            }
+        } else {
+            // Try direct lookup in personal tasks
+            personalTask = personalTasks.find((p: any) => p.id === activeId);
+        }
+
+        // If it's a personal task
+        if (personalTask) {
+            const originalDate = personalTask.due_date.split('T')[0];
+            if (originalDate === overDate) return; // No change
+
+            console.log(`🔄 [DRAG] Personal Task: ${personalTask.title}`);
+            console.log(`   ID: ${personalTask.id}`);
+            console.log(`   From: ${originalDate} → To: ${overDate}`);
+
+            // Optimistic Update: Snapshot for rollback
+            const oldPersonalTasks = JSON.parse(JSON.stringify(personalTasks));
+
+            // Update local state immediately
+            setPersonalTasks((prev: any[]) => {
+                return prev.map(task => {
+                    if (task.id === personalTask.id) {
+                        return { ...task, due_date: `${overDate}T12:00:00` };
+                    }
+                    return task;
+                });
+            });
+
+            // Server Action (background)
+            startTransition(async () => {
+                const result = await updatePersonalTaskDate(personalTask.id, `${overDate}T12:00:00`);
+                if (!result.success) {
+                    console.error("❌ [DRAG] Personal Task Update FAILED");
+                    console.error("   Error:", result.error);
+                    console.error("   Task ID:", personalTask.id);
+                    console.error("   New Date:", `${overDate}T12:00:00`);
+                    setPersonalTasks(oldPersonalTasks); // Rollback on error
+                } else {
+                    console.log("✅ [DRAG] Personal Task Updated Successfully");
+                }
+            });
+
+            return;
+        }
+
+        // Otherwise, it's an assessment
+        const item = courses.flatMap((c: any) => c.assessments || []).find((a: any) => a.id === activeId);
+        if (!item) return;
+
+        const originalDate = item.due_date.split('T')[0];
+        if (originalDate === overDate) return; // No change
+
+        console.log(`🔄 [DRAG] Assessment: ${item.name}`);
+        console.log(`   ID: ${activeId}`);
+        console.log(`   From: ${originalDate} → To: ${overDate}`);
+
+        // Optimistic Update: Snapshot current state for rollback
+        const oldCourses = JSON.parse(JSON.stringify(courses));
+
+        // Update local state immediately (optimistic)
+        setCourses((prev: any[]) => {
+            return prev.map(course => {
+                if (!course.assessments) return course;
+                return {
+                    ...course,
+                    assessments: course.assessments.map((assessment: any) => {
+                        if (assessment.id === activeId) {
+                            return { ...assessment, due_date: `${overDate}T12:00:00` };
+                        }
+                        return assessment;
+                    })
+                };
+            });
+        });
+
+        // Server Action (background)
+        startTransition(async () => {
+            const result = await updateAssessmentDate(activeId, `${overDate}T12:00:00`);
+            if (!result.success) {
+                console.error("❌ [DRAG] Assessment Update FAILED");
+                console.error("   Error:", result.error);
+                console.error("   Assessment ID:", activeId);
+                console.error("   New Date:", `${overDate}T12:00:00`);
+                setCourses(oldCourses); // Rollback on error
+            } else {
+                console.log("✅ [DRAG] Assessment Updated Successfully");
+            }
+        });
     };
 
     const handleConfirmReschedule = async () => {
         if (!rescheduleItem || !rescheduleDate) return;
 
         try {
-            console.log("[Reschedule] Starting for item:", rescheduleItem);
+            console.log("[Edit] Starting for item:", rescheduleItem);
 
             let datePayload = rescheduleDate;
-            // Explicitly resolve type to ensure we catch OA/Interview correctly
             const itemType = rescheduleItem.type || 'assessment';
 
             // UNIFIED HANDLER LOGIC
@@ -184,8 +327,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 datePayload = d.toISOString();
             }
 
-            // Extract ID safely - Handle UUIDs which contain hyphens!
-            // uniqueId format is "type-uuid", so splitting by "-" breaks the UUID itself if we only take [1]
+            // Extract ID safely
             const itemId = rescheduleItem.id || (
                 rescheduleItem.uniqueId
                     ? rescheduleItem.uniqueId.split('-').slice(1).join('-')
@@ -193,19 +335,35 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             );
 
             if (!itemId) {
-                console.error("[Reschedule] Could not resolve Item ID");
+                console.error("[Edit] Could not resolve Item ID");
                 return;
             }
 
-            console.log(`[Reschedule] Payload: ID=${itemId}, Type=${itemType}, Date=${datePayload}`);
+            console.log(`[Edit] Payload: ID=${itemId}, Type=${itemType}, Date=${datePayload}`);
 
-            await updateItemDateDirect(itemId, itemType, datePayload);
+            // For assessments with grade input, use the unified update action
+            if (itemType === 'assessment' && rescheduleScore !== "") {
+                const scoreValue = parseFloat(rescheduleScore);
+                if (!isNaN(scoreValue)) {
+                    await updateAssessmentDetails(itemId, datePayload, scoreValue);
+                } else {
+                    // Only update date if score is invalid
+                    await updateItemDateDirect(itemId, itemType, datePayload);
+                }
+            } else if (itemType === 'assessment') {
+                // Assessment with no score - just update date
+                await updateItemDateDirect(itemId, itemType, datePayload);
+            } else {
+                // Non-assessment items (interviews, OAs, personal)
+                await updateItemDateDirect(itemId, itemType, datePayload);
+            }
 
             setIsRescheduleOpen(false);
             setRescheduleItem(null);
+            setRescheduleScore("");
             router.refresh();
         } catch (error) {
-            console.error("Failed to reschedule", error);
+            console.error("Failed to save changes", error);
         }
     };
 
@@ -235,6 +393,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                     due_date: dateKey, // Display/Logic Date
                     originalDate: a.due_date,
                     courseCode: c.course_code,
+                    courseColor: c.color, // [FIX] Add course color
                     uniqueId: `assessment-${a.id}`,
                     type: "assessment"
                 });
@@ -286,18 +445,24 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
                 // Find course info if it's course work
                 let courseCode = "PERSONAL";
+                let courseColor = null;
                 if (p.type === 'course_work' && p.course_id && courses) {
                     const matchedCourse = courses.find(c => c.id === p.course_id);
-                    if (matchedCourse) courseCode = matchedCourse.course_code;
+                    if (matchedCourse) {
+                        courseCode = matchedCourse.course_code;
+                        courseColor = matchedCourse.color; // [FIX] Add course color
+                    }
                 }
 
                 addItem({
+                    id: p.id, // [FIX] Add real database ID for drag-and-drop
                     uniqueId: `personal-${p.id}`,
                     name: p.title,
                     description: p.description,
                     due_date: dateKey,
                     originalDate: p.due_date,
                     courseCode: courseCode,
+                    courseColor: courseColor, // [FIX] Add color
                     weight: 0, // No weight
                     is_completed: p.is_completed,
                     type: p.type,
@@ -317,6 +482,15 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 i.id === realId ? { ...i, status: !currentStatus ? "Done" : (i.type === 'oa' ? 'Pending' : 'Interview') } : i
             ));
             await toggleInterviewComplete(realId, !currentStatus);
+            return;
+        }
+
+        if (uniqueId.startsWith("personal-")) {
+            const realId = uniqueId.replace("personal-", "");
+            setPersonalTasks(prev => prev.map((p: any) =>
+                p.id === realId ? { ...p, is_completed: !currentStatus } : p
+            ));
+            await togglePersonalTaskComplete(realId, !currentStatus);
             return;
         }
 
@@ -343,8 +517,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         isCreatingTask.current = true;
 
         try {
-            // Optimistic UI Update (Optional, but good for UX)
-            await createPersonalTask({
+            // [CRITICAL] Wait for server response with REAL UUID
+            const result = await createPersonalTask({
                 title: newTaskData.title,
                 // [FIX] Force Noon Local Time to prevent Midnight Drift
                 due_date: new Date(`${newTaskData.due_date}T12:00:00`).toISOString(),
@@ -353,10 +527,27 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 description: newTaskData.description
             });
 
-            setIsAddModalOpen(false);
-            router.refresh(); // Fetch real data
+            if (result.success && result.task) {
+                // [CRITICAL] Use REAL database object (not temp ID)
+                // This prevents ghost items and enables drag-and-drop
+                setPersonalTasks(prev => [...prev, result.task]);
+                setIsAddModalOpen(false);
+
+                // Reset form
+                setNewTaskData({
+                    title: "",
+                    type: "personal",
+                    course_id: "",
+                    due_date: "",
+                    description: ""
+                });
+            } else {
+                console.error("Failed to create task:", result.error);
+                alert(result.error || "Failed to create task");
+            }
         } catch (e) {
             console.error(e);
+            alert("An unexpected error occurred");
         } finally {
             isCreatingTask.current = false; // [FIX] Unlock
         }
@@ -428,7 +619,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const isToday = new Date().toDateString() === currentDayDate.toDateString();
 
-                        let dayItems = byDate[dateStr] || []; // Lookup Correct Items
+                        let dayItems = byDate[dateStr] || [];
                         dayItems.sort((a, b) => b.weight - a.weight);
 
                         const visibleItems = showCompleted ? dayItems : dayItems.filter(a => !a.is_completed);
@@ -437,18 +628,25 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         const hiddenCount = visibleItems.length - MAX_ITEMS;
 
                         return (
-                            <div
+                            <DroppableDay
                                 key={day}
-                                onClick={() => { if (visibleItems.length > 0) setSelectedDay(dateStr); }}
+                                date={dateStr}
+                                id={isToday ? "today-cell" : undefined}
                                 className={cn(
                                     "relative p-1 flex flex-col gap-1.5 border-b border-r border-white/5 transition-colors group/cell min-h-[160px]",
-                                    isToday ? "bg-blue-900/5" : "bg-transparent hover:bg-white/[0.02]",
+                                    isToday
+                                        ? "bg-blue-400/5 ring-2 ring-blue-400 ring-offset-2 ring-offset-black"
+                                        : "bg-transparent hover:bg-white/[0.02]",
                                     visibleItems.length > 0 && "cursor-pointer"
                                 )}
                             >
                                 <div className="flex items-center justify-between px-1 pt-1">
-                                    <div className={cn("text-xs font-medium", isToday ? "text-blue-400 font-bold" : "text-gray-500")}>{day}</div>
-                                    {/* [NEW] Add Button on Hover */}
+                                    <div
+                                        className={cn("text-xs font-medium", isToday ? "text-blue-400 font-bold" : "text-gray-500")}
+                                        onClick={() => { if (visibleItems.length > 0) setSelectedDay(dateStr); }}
+                                    >
+                                        {day}
+                                    </div>
                                     <button
                                         onClick={(e) => openAddModal(dateStr, e)}
                                         className="opacity-0 group-hover/cell:opacity-100 p-0.5 hover:bg-white/20 rounded text-gray-400 hover:text-white transition-all"
@@ -457,49 +655,60 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                     </button>
                                 </div>
 
-                                {displayItems.map((item: any) => {
+                                {displayItems.map((item: any, index: number) => {
                                     const isInterview = item.type === "interview";
                                     const isOA = item.type === "oa";
                                     const isPersonal = item.uniqueId.startsWith("personal-");
-                                    const isCareer = isInterview || isOA || isPersonal;
+                                    const isCareer = isInterview || isOA; // Only interviews and OAs are non-draggable
+                                    const itemColor = item.courseColor || getCourseColor(item.courseCode);
+                                    const isDraggable = !isCareer; // Assessments and Personal tasks are draggable
 
-                                    return (
+                                    // [FIX] Safe ID for draggable items (prevents crashes on null IDs)
+                                    const safeId = item.id ? String(item.id) : `temp-${item.uniqueId}-${index}`;
+
+                                    const cardContent = (
                                         <div
                                             key={item.uniqueId}
                                             className={cn(
-                                                "relative flex flex-col px-2 py-1.5 rounded-sm border-l-2 shadow-sm transition-all overflow-hidden",
-                                                getCourseTheme(item.courseCode).replace('border-', 'border-l-'), // Hack to ensure left border is used effectively or override below
-                                                "border-y-0 border-r-0", // Reset other borders
+                                                "relative flex flex-col px-2 py-1.5 rounded-sm border-l-2 shadow-sm transition-all overflow-hidden cursor-pointer",
+                                                "border-y-0 border-r-0",
                                                 item.is_completed && "opacity-40 grayscale border-dashed"
                                             )}
-                                            style={{ borderColor: getCourseColor(item.courseCode) }} // Force Left Border Color
+                                            style={{
+                                                borderLeftColor: itemColor,
+                                                backgroundColor: `${itemColor}18`
+                                            }}
+                                            onClick={(e) => {
+                                                // Open reschedule/edit modal when card is clicked
+                                                e.stopPropagation();
+                                                handleRescheduleClick(item, e);
+                                            }}
                                         >
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className={cn("text-[10px] font-black tracking-tight uppercase opacity-95 flex items-center gap-1",
-                                                    isInterview && "text-yellow-400",
-                                                    isOA && "text-cyan-400"
-                                                )}>
-                                                    {/* [UPDATED] Icons: Handshake for Interview, Laptop for OA */}
+                                                <span className="text-[10px] font-black tracking-tight uppercase opacity-95 flex items-center gap-1 text-white">
                                                     {isInterview && <Handshake className="w-3 h-3 text-yellow-400" />}
                                                     {isOA && <Laptop className="w-3 h-3 text-cyan-400" />}
                                                     {item.courseCode}
                                                 </span>
                                                 {isCareer ? (
-                                                    <span className={cn("text-[9px] font-bold text-white px-1 rounded", isInterview ? "bg-black/30" : "bg-cyan-900/50")}>
+                                                    <span
+                                                        className="text-[9px] font-bold text-white px-1 rounded"
+                                                        style={{ backgroundColor: isInterview ? "rgba(0,0,0,0.3)" : "rgba(6,182,212,0.3)" }}
+                                                    >
                                                         {item.timeDisplay}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider text-white opacity-70">
                                                         {getAssessmentType(item.name, item.type)}
                                                     </span>
                                                 )}
                                             </div>
 
-                                            <div className="font-bold text-xs leading-tight line-clamp-2 pr-4 mb-1 opacity-95">
+                                            <div className="font-bold text-xs leading-tight line-clamp-2 pr-4 mb-1 opacity-95 text-gray-100">
                                                 {item.name}
                                             </div>
 
-                                            <div className="text-[10px] font-medium opacity-70">
+                                            <div className="text-[10px] font-medium text-white opacity-80">
                                                 {isCareer ? item.description : `${item.weight}%`}
                                             </div>
 
@@ -509,20 +718,39 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                     handleToggleComplete(item.uniqueId, item.is_completed);
                                                 }}
                                                 className={cn(
-                                                    "absolute bottom-2 right-2 w-5 h-5 rounded-sm border flex items-center justify-center transition-all bg-black/30",
+                                                    "absolute bottom-2 right-2 w-5 h-5 rounded-sm border flex items-center justify-center transition-all",
                                                     item.is_completed
                                                         ? "border-current text-current"
-                                                        : "border-white/20 text-transparent hover:border-white/50"
+                                                        : "border-white/10 text-transparent hover:border-white/20 bg-black/40"
                                                 )}
+                                                style={item.is_completed ? { backgroundColor: `${itemColor}15` } : {}}
                                             >
                                                 <Check className={cn("w-3.5 h-3.5 transition-transform", item.is_completed && "scale-100", !item.is_completed && "scale-0")} />
                                             </button>
-
                                         </div>
                                     );
+
+                                    // Wrap draggable items with safe ID
+                                    if (isDraggable) {
+                                        return (
+                                            <DraggableCard key={item.uniqueId} id={safeId}>
+                                                {cardContent}
+                                            </DraggableCard>
+                                        );
+                                    }
+
+                                    return cardContent;
                                 })}
-                                {hiddenCount > 0 && <div className="mt-auto text-[10px] font-bold text-gray-500 text-center py-0.5 bg-gray-800/30 rounded">+{hiddenCount} More</div>}
-                            </div>
+                                {hiddenCount > 0 && (
+                                    <div
+                                        className="mt-auto text-[10px] font-bold text-gray-500 text-center py-0.5 bg-gray-800/30 rounded cursor-pointer hover:bg-gray-800/50 transition-colors"
+                                        onClick={() => setSelectedDay(dateStr)}
+                                        onPointerDown={(e) => e.stopPropagation()} // [FIX] Shield from drag sensor
+                                    >
+                                        +{hiddenCount} More
+                                    </div>
+                                )}
+                            </DroppableDay>
                         );
                     })}
                 </div>
@@ -571,8 +799,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 "bg-white/5 backdrop-blur-md border-white/5 hover:bg-white/10 hover:border-white/20",
                                                 item.is_completed && "opacity-40 grayscale"
                                             )}>
-                                                <div className="absolute left-0 top-0 bottom-0 w-1 z-20" style={{ backgroundColor: getCourseColor(item.courseCode) }} />
-                                                <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300 opacity-[0.08] group-hover:opacity-[0.12]" style={{ backgroundColor: getCourseColor(item.courseCode) }} />
+                                                <div className="absolute left-0 top-0 bottom-0 w-1 z-20" style={{ backgroundColor: item.courseColor || getCourseColor(item.courseCode) }} />
+                                                <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300 opacity-[0.08] group-hover:opacity-[0.12]" style={{ backgroundColor: item.courseColor || getCourseColor(item.courseCode) }} />
 
                                                 <button onClick={() => handleToggleComplete(item.uniqueId, item.is_completed)} className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ml-1 relative z-10", item.is_completed ? "bg-emerald-500 border-emerald-500 text-white scale-110" : "border-white/20 hover:border-white text-transparent")}>
                                                     <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -581,9 +809,9 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 <div className="flex-1 min-w-0 relative z-10">
                                                     <div className="flex items-center gap-3 mb-1.5">
                                                         <span className="text-[10px] font-bold px-2 py-0.5 rounded border tracking-wide uppercase shadow-sm" style={{
-                                                            borderColor: `${getCourseColor(item.courseCode)}40`,
-                                                            backgroundColor: `${getCourseColor(item.courseCode)}10`, // Fallback
-                                                            color: `${getCourseColor(item.courseCode)}`
+                                                            borderColor: `${item.courseColor || getCourseColor(item.courseCode)}40`,
+                                                            backgroundColor: `${item.courseColor || getCourseColor(item.courseCode)}10`, // Fallback
+                                                            color: `${item.courseColor || getCourseColor(item.courseCode)}`
                                                         }}>
                                                             <span className={cn("opacity-80", getCourseTheme(item.courseCode).split(' ')[0])}></span>{/* Tiny hack for theme color if needed, but manual style overrides it */}
                                                             {item.courseCode}
@@ -618,7 +846,47 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 <div className="hidden lg:block w-72 shrink-0">
                     <div className="sticky top-[100px] bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-xl">
                         <div className="flex items-center gap-2 mb-4 text-gray-400"><Filter className="w-4 h-4" /><span className="text-xs font-bold uppercase tracking-widest">Quick Access</span></div>
-                        <div className="space-y-2">{uniqueCourses.map((code: any) => (<a key={code} href={COURSE_URLS[code] || "https://learn.uwaterloo.ca/"} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all group"><div className="flex items-center gap-3"><div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: getCourseColor(code) }} /><div><div className="font-bold text-gray-200 group-hover:text-white transition-colors text-sm">{code}</div><div className="text-xs text-gray-500 font-medium">{COURSE_TITLES[code] || "Course"}</div></div></div><ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all" /></a>))}</div>
+                        <div className="space-y-2">{(() => {
+                            // Create a map of course codes to their colors from the actual course data
+                            const courseColorMap = new Map<string, string>();
+                            courses.forEach(c => {
+                                courseColorMap.set(c.course_code, c.color);
+                            });
+
+                            return uniqueCourses.map((code: any) => {
+                                const courseColor = courseColorMap.get(code) || getCourseColor(code);
+
+                                return (
+                                    <a
+                                        key={code}
+                                        href={COURSE_URLS[code] || "https://learn.uwaterloo.ca/"}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-between p-3 rounded-lg border transition-all group relative overflow-hidden"
+                                        style={{
+                                            backgroundColor: `${courseColor}15`,
+                                            borderColor: `${courseColor}30`
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="w-1.5 h-8 rounded-full"
+                                                style={{ backgroundColor: courseColor }}
+                                            />
+                                            <div>
+                                                <div className="font-bold text-sm text-white">
+                                                    {code}
+                                                </div>
+                                                <div className="text-xs text-gray-400 font-medium">
+                                                    {COURSE_TITLES[code] || "Course"}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all" />
+                                    </a>
+                                );
+                            });
+                        })()}</div>
                     </div>
                 </div>
             </div>
@@ -685,7 +953,9 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 <div className="h-full">
                     <div className="md:hidden h-full">{renderListView()}</div>
                     <div className="hidden md:block h-full relative">
-                        {viewMode === "month" ? renderMonthView() : renderListView()}
+                        <DndContext id="calendar-dnd" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                            {viewMode === "month" ? renderMonthView() : renderListView()}
+                        </DndContext>
                     </div>
                 </div>
             </div>
@@ -717,15 +987,20 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                     const isInterview = item.type === "interview";
                                     const isOA = item.type === "oa";
                                     const isCareer = isInterview || isOA;
+                                    const itemColor = item.courseColor || getCourseColor(item.courseCode);
 
                                     return (
                                         <div
                                             key={item.uniqueId}
                                             className={cn(
-                                                "group flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 relative", // Added 'relative'
-                                                getCourseTheme(item.courseCode),
+                                                "group flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 relative",
+                                                "border-white/10",
                                                 item.is_completed && "opacity-40 grayscale border-dashed"
                                             )}
+                                            style={{
+                                                backgroundColor: `${itemColor}15`,
+                                                borderColor: `${itemColor}30`
+                                            }}
                                         >
                                             <button
                                                 onClick={(e) => {
@@ -739,16 +1014,14 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 className={cn(
                                                     "w-5 h-5 rounded border flex items-center justify-center transition-all shrink-0",
                                                     item.is_completed ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-600 hover:border-white",
-                                                    item.uniqueId.startsWith("personal-") && "hover:bg-red-500/20 hover:border-red-500 group/del" // Delete styling for personal
+                                                    item.uniqueId.startsWith("personal-") && "hover:bg-red-500/20 hover:border-red-500 group/del"
                                                 )}
                                             >
                                                 {item.uniqueId.startsWith("personal-") && !item.is_completed ? (
                                                     <Trash2 className="w-3 h-3 text-red-400 opacity-0 group-hover/del:opacity-100 transition-opacity" />
                                                 ) : (
-                                                    item.is_completed ? <Check className="w-3 h-3" /> : (item.uniqueId.startsWith("personal-") ? null : null) // Only show trash if not done? Or always if personal.
+                                                    item.is_completed ? <Check className="w-3 h-3" /> : null
                                                 )}
-                                                {/* Logic Fix: Use a dedicated delete button or combine with checkbox? User usually wants to check off personal tasks too. Let's keep checkbox, maybe a separate delete button on the side? */}
-                                                {/* REVISIT: For now, keeping as checkbox. Adding a small delete button top right of the card. */}
                                             </button>
 
                                             {/* SEPARATE DELETE BUTTON FOR PERSONAL TASKS */}
@@ -773,10 +1046,10 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className={cn("text-[10px] font-bold px-1.5 rounded bg-white/5 text-gray-400 flex items-center gap-1",
-                                                        isInterview && "text-yellow-400",
-                                                        isOA && "text-cyan-400"
-                                                    )} style={!isCareer ? { color: getCourseColor(item.courseCode) } : {}}>
+                                                    <span
+                                                        className="text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 text-white"
+                                                        style={{ backgroundColor: `${itemColor}20` }}
+                                                    >
                                                         {isInterview && <Handshake className="w-3 h-3 text-yellow-400" />}
                                                         {isOA && <Laptop className="w-3 h-3 text-cyan-400" />}
                                                         {item.courseCode}
@@ -784,7 +1057,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                     {(isCareer) ? (
                                                         <span className={cn("text-xs font-bold", isInterview ? "text-yellow-500" : "text-cyan-400")}>{item.timeDisplay}</span>
                                                     ) : (
-                                                        <span className="text-xs text-gray-500">{item.weight}% Weight</span>
+                                                        <span className="text-xs text-white opacity-70">{item.weight}% Weight</span>
                                                     )}
                                                 </div>
                                                 <div className={cn("text-base font-medium text-gray-200", item.is_completed && "line-through text-gray-500")}>
@@ -892,40 +1165,157 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
             </Dialog>
 
-            {/* RESCHEDULE DIALOG */}
+            {/* EDIT EVENT DIALOG (Glass UI Redesign) */}
             <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
-                <DialogContent className="bg-[#111] border-gray-800 text-white z-[200] sm:max-w-md"> {/* Added z-[200] */}
-                    <DialogHeader>
-                        <DialogTitle>Reschedule Event</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="text-sm font-medium text-gray-400">
-                            {rescheduleItem?.name}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase">New Date & Time</label>
-                            <div className="relative group">
-                                <Input
-                                    ref={rescheduleDateRef}
-                                    type="datetime-local"
-                                    value={rescheduleDate}
-                                    onChange={(e) => setRescheduleDate(e.target.value)}
-                                    className="bg-[#0a0a0a] border-gray-800 text-white [&::-webkit-calendar-picker-indicator]:hidden"
-                                />
-                                {/* Custom Clickable Overlay */}
+                <DialogContent className="bg-neutral-900/85 backdrop-blur-xl border border-white/10 shadow-2xl text-white z-[200] sm:max-w-lg overflow-hidden p-0 animate-in fade-in zoom-in-95 duration-200">
+                    {rescheduleItem && (() => {
+                        const itemColor = rescheduleItem.courseColor || getCourseColor(rescheduleItem.courseCode);
+                        const isAssessment = !rescheduleItem.type?.includes('interview') && !rescheduleItem.type?.includes('oa') && !rescheduleItem.uniqueId?.startsWith('personal-');
+                        const gradeValue = parseFloat(rescheduleScore) || 0;
+                        const gradeColor = gradeValue >= 80 ? 'text-emerald-400' : gradeValue >= 60 ? 'text-yellow-400' : gradeValue > 0 ? 'text-red-400' : 'text-gray-400';
+
+                        return (
+                            <>
+                                {/* Gradient Header with Course Color */}
                                 <div
-                                    className="absolute right-0 top-0 h-full w-1/2 flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-r-md transition-colors"
-                                    onClick={() => (rescheduleDateRef.current as any)?.showPicker?.()}
+                                    className="relative h-24 px-6 pt-6 pb-4 overflow-hidden"
+                                    style={{
+                                        background: `linear-gradient(135deg, ${itemColor}20 0%, ${itemColor}05 100%)`
+                                    }}
                                 >
-                                    <CalendarIcon className="w-5 h-5 text-white" />
+                                    {/* Ambient glow */}
+                                    <div
+                                        className="absolute inset-0 opacity-20 blur-2xl"
+                                        style={{ backgroundColor: itemColor }}
+                                    />
+
+                                    <div className="relative z-10">
+                                        <DialogHeader className="space-y-0 p-0">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div
+                                                    className="w-1 h-6 rounded-full"
+                                                    style={{ backgroundColor: itemColor }}
+                                                />
+                                                <DialogTitle className="font-heading text-2xl font-bold tracking-tight text-white">
+                                                    Edit Event
+                                                </DialogTitle>
+                                            </div>
+                                            <p className="text-sm text-white/60 font-medium pl-3">
+                                                {rescheduleItem.courseCode} · {rescheduleItem.name}
+                                            </p>
+                                        </DialogHeader>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsRescheduleOpen(false)} className="border-gray-800 hover:bg-white/5 text-gray-400">Cancel</Button>
-                        <Button onClick={handleConfirmReschedule} className="bg-white text-black hover:bg-gray-200 font-bold">Confirm Reschedule</Button>
-                    </DialogFooter>
+
+                                <div className="px-6 py-6 space-y-6">
+                                    {/* Date Input */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Due Date & Time</label>
+                                        <div className="relative group">
+                                            <Input
+                                                ref={rescheduleDateRef}
+                                                type="datetime-local"
+                                                value={rescheduleDate}
+                                                onChange={(e) => setRescheduleDate(e.target.value)}
+                                                className="bg-white/5 backdrop-blur-sm border-white/10 hover:border-white/20 focus:border-white/30 text-white h-12 text-base transition-all duration-200 [&::-webkit-calendar-picker-indicator]:hidden"
+                                            />
+                                            {/* Custom Calendar Overlay */}
+                                            <div
+                                                className="absolute right-0 top-0 h-full w-12 flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-r-md transition-colors"
+                                                onClick={() => (rescheduleDateRef.current as any)?.showPicker?.()}
+                                            >
+                                                <CalendarIcon className="w-5 h-5 text-white/60" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Grade Input - HERO SECTION (only for assessments) */}
+                                    {isAssessment && (
+                                        <div className="space-y-3 pt-4 border-t border-white/5">
+                                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Grade Achieved</label>
+
+                                            {/* Hero Grade Display */}
+                                            <div className="relative">
+                                                <div
+                                                    className="relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-xl p-6 overflow-hidden group hover:border-white/20 transition-all duration-300"
+                                                    style={{
+                                                        boxShadow: gradeValue > 0 ? `0 0 30px ${itemColor}15` : 'none'
+                                                    }}
+                                                >
+                                                    {/* Ambient glow for high grades */}
+                                                    {gradeValue >= 80 && (
+                                                        <div
+                                                            className="absolute inset-0 opacity-10 blur-3xl"
+                                                            style={{ backgroundColor: itemColor }}
+                                                        />
+                                                    )}
+
+                                                    <div className="relative flex items-baseline justify-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            step="0.1"
+                                                            value={rescheduleScore}
+                                                            onChange={(e) => setRescheduleScore(e.target.value)}
+                                                            placeholder="--"
+                                                            className={cn(
+                                                                "font-heading text-6xl font-black text-center bg-transparent border-none outline-none w-full transition-colors duration-300",
+                                                                gradeColor,
+                                                                "placeholder:text-white/10"
+                                                            )}
+                                                            style={{
+                                                                textShadow: gradeValue >= 80 ? `0 0 20px ${itemColor}40` : 'none'
+                                                            }}
+                                                        />
+                                                        <span className={cn("font-heading text-3xl font-bold", gradeColor, "opacity-60")}>%</span>
+                                                    </div>
+
+                                                    {/* Grade Status Indicator */}
+                                                    {gradeValue > 0 && (
+                                                        <div className="mt-4 text-center">
+                                                            <div className={cn("inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm",
+                                                                gradeValue >= 80 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
+                                                                    gradeValue >= 60 ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30" :
+                                                                        "bg-red-500/20 text-red-300 border border-red-500/30"
+                                                            )}>
+                                                                {gradeValue >= 80 ? "🎉 Excellent" : gradeValue >= 60 ? "⚠️ Passing" : "❌ Needs Improvement"}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Hint Text */}
+                                                <p className="text-xs text-white/30 mt-2 text-center">
+                                                    {gradeValue === 0 ? "Enter your grade (0-100)" : `Weighted: ${(gradeValue * (rescheduleItem.weight || 0) / 100).toFixed(1)}%`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Footer with Glass Buttons */}
+                                <DialogFooter className="px-6 py-4 bg-white/5 backdrop-blur-sm border-t border-white/10 gap-3">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsRescheduleOpen(false)}
+                                        className="border-white/20 bg-white/5 backdrop-blur-sm hover:bg-white/10 text-white/70 hover:text-white font-medium transition-all duration-200"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleConfirmReschedule}
+                                        className="font-heading font-bold text-black hover:shadow-lg transition-all duration-200"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${itemColor} 0%, ${itemColor}dd 100%)`,
+                                        }}
+                                    >
+                                        Save Changes
+                                    </Button>
+                                </DialogFooter>
+                            </>
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
         </div>

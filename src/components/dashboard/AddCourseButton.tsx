@@ -1,0 +1,26 @@
+"use client";
+
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import AddCourseModal from "./AddCourseModal";
+
+export default function AddCourseButton() {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    return (
+        <>
+            <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-lg transition-opacity"
+            >
+                <Plus className="w-4 h-4" />
+                Add Your First Course
+            </button>
+
+            <AddCourseModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+            />
+        </>
+    );
+}

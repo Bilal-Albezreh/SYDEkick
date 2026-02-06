@@ -156,10 +156,11 @@ export function UpcomingWidget({ data }: { data: any[] }) {
 
     const daysLeft = differenceInCalendarDays(itemDate, todayZero);
 
-    if (daysLeft <= 0) return "bg-red-500/20 text-red-400 border-red-500/50 animate-pulse"; // Due Today
-    if (daysLeft === 1) return "bg-orange-500/20 text-orange-400 border-orange-500/50"; // Due Tomorrow
-    if (daysLeft <= 3) return "bg-yellow-500/20 text-yellow-400 border-yellow-500/50"; // Upcoming
-    return "bg-gray-800 text-gray-400 border-gray-700"; // Safe (4-7 days)
+    // User's specific requirements:
+    if (daysLeft <= 1) return "bg-red-500/20 text-red-400 border-red-500/50 animate-pulse"; // Due in 1 day or less
+    if (daysLeft === 2) return "bg-orange-500/20 text-orange-400 border-orange-500/50"; // Due in 2 days
+    if (daysLeft === 3) return "bg-yellow-500/20 text-yellow-400 border-yellow-500/50"; // Due in 3 days
+    return "bg-gray-800 text-gray-400 border-gray-700"; // 4+ days
   };
 
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -203,8 +204,8 @@ export function UpcomingWidget({ data }: { data: any[] }) {
 
   return (
     <>
-      <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 h-full hover:bg-black/40 transition-colors duration-300">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 h-full flex flex-col hover:bg-black/40 transition-colors duration-300">
+        <div className="flex items-center justify-between mb-4 shrink-0">
           <div className="flex items-center gap-2 text-gray-500">
             <CalendarDays className="w-4 h-4" />
             <span className="text-xs font-bold uppercase tracking-widest">Next 7 Days</span>
@@ -214,7 +215,8 @@ export function UpcomingWidget({ data }: { data: any[] }) {
           </span>
         </div>
 
-        <div className="space-y-3">
+        {/* Scrollable container for many items */}
+        <div className="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar">
           {sorted && sorted.length > 0 ? (
             sorted.map((item) => {
               const urgencyClass = getUrgencyStyles(item.due_date);
@@ -304,31 +306,37 @@ export function ProgressWidget({ data }: { data: any[] }) {
          without ever creating a scrollbar.
       */}
       <div className="flex-1 flex flex-col justify-between min-h-0 pt-2 pb-1">
-        {data.map((course) => (
-          <div key={course.id || course.course_code} className="w-full">
-            <div className="flex justify-between items-end mb-1">
-              <div className="flex flex-col leading-none">
-                <span className="font-bold text-gray-200 text-xs mb-0.5">{course.course_code}</span>
-                <span className="text-[9px] text-gray-600 font-mono">
-                  {course.completedWeight.toFixed(0)}/{course.totalWeight.toFixed(0)}%
+        {data && data.length > 0 ? (
+          data.map((course) => (
+            <div key={course.id || course.course_code} className="w-full">
+              <div className="flex justify-between items-end mb-1">
+                <div className="flex flex-col leading-none">
+                  <span className="font-bold text-gray-200 text-xs mb-0.5">{course.course_code}</span>
+                  <span className="text-[9px] text-gray-600 font-mono">
+                    {course.completedWeight.toFixed(0)}/{course.totalWeight.toFixed(0)}%
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-white bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                  {course.percentage.toFixed(0)}%
                 </span>
               </div>
-              <span className="text-[10px] font-bold text-white bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
-                {course.percentage.toFixed(0)}%
-              </span>
-            </div>
 
-            <div className="h-1.5 w-full bg-gray-800/50 rounded-full overflow-hidden border border-white/5">
-              <div
-                className="h-full rounded-full relative transition-all duration-1000"
-                style={{
-                  width: `${course.percentage}%`,
-                  backgroundColor: course.color || "#3b82f6"
-                }}
-              />
+              <div className="h-1.5 w-full bg-gray-800/50 rounded-full overflow-hidden border border-white/5">
+                <div
+                  className="h-full rounded-full relative transition-all duration-1000"
+                  style={{
+                    width: `${course.percentage}%`,
+                    backgroundColor: course.color || "#3b82f6"
+                  }}
+                />
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+            No courses found for this term
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -628,26 +636,28 @@ export function ChatWidget({
 // --- MAIN LAYOUT COMPONENT ---
 export default function DashboardGrid({
   courses,
+  upcomingAssessments,
   messages,
   rankData,
   currentUser
 }: {
   courses: any[],
+  upcomingAssessments?: any[], // NEW: Direct prop for upcoming assessments
   messages: any[],
   rankData: { myRank: any, topRank: any[] },
   currentUser: { id: string, name: string, avatar: string | null }
 }) {
 
-  const upcomingAssessments = courses.flatMap(c =>
-    c.assessments.map((a: any) => ({
+  // Use provided upcomingAssessments or fallback to computed version for backwards compatibility
+  const upcoming = upcomingAssessments ?? courses.flatMap(c =>
+    (c.assessments || []).map((a: any) => ({
       ...a,
       courses: {
         course_code: c.course_code,
         color: c.color
       }
     }))
-  )
-    .filter((a: any) => !a.is_completed && new Date(a.due_date) > new Date());
+  ).filter((a: any) => !a.is_completed && new Date(a.due_date) > new Date());
 
   const courseProgress = courses.map(c => {
     // 1. Calculate Total Weight of all assessments
@@ -687,7 +697,7 @@ export default function DashboardGrid({
       {/* COL 3: Upcoming & Progress */}
       <div className="flex flex-col gap-6 h-full overflow-hidden">
         <div className="h-1/2 min-h-0 overflow-hidden">
-          <UpcomingWidget data={upcomingAssessments} />
+          <UpcomingWidget data={upcoming} />
         </div>
         {/* This will now Auto-Fit perfectly */}
         <div className="h-1/2 min-h-0 overflow-hidden">

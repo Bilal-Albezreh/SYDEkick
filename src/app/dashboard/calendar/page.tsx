@@ -10,7 +10,7 @@ export default async function CalendarPage() {
     redirect("/login");
   }
 
-  // 1. Fetch Courses + Assessments (Existing)
+  // 1. Fetch Courses + Assessments with Course Color Join
   const { data: courses } = await supabase
     .from("courses")
     .select(`
