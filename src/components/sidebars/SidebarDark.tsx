@@ -10,6 +10,7 @@ import {
     BookOpen,
     Trophy,
     User,
+    Users,
     LogOut,
     X,
     Clock,
@@ -44,6 +45,7 @@ export default function SidebarDark() {
         { name: "Grades", href: "/dashboard/grades", icon: BookOpen },    // Calculator
         { name: "Schedule", href: "/dashboard/schedule", icon: Clock },// Calendar
         { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
+        { name: "Group", href: "/dashboard/groups", icon: Users },
         { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Trophy },
         { name: "Application Tracker", href: "/dashboard/career", icon: Briefcase },
         { name: "Lock IN", href: "/dashboard/lockedin", icon: Hourglass },
