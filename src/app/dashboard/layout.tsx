@@ -3,7 +3,6 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import { Lock, LogOut } from "lucide-react";
 import { redirect } from "next/navigation";
-import { seedCourses } from "@/app/actions/seed"; // <--- IMPORT THIS
 
 export default async function DashboardLayout({
   children,
@@ -50,14 +49,9 @@ export default async function DashboardLayout({
     );
   }
 
-  // 4. AUTO-SEED TRIGGER (The "Magic" Line)
-  // This checks if the user has data. If not, it creates it instantly.
-  try {
-    await seedCourses(false);
-  } catch (err) {
-    console.error("Auto-seeding failed:", err);
-    // We swallow the error so the dashboard still loads even if seeding fails
-  }
+  // 4. CLEAN SLATE: No auto-seeding
+  // Users will manually add courses via the UI as needed
+  // Previously, this called seedCourses(false) which auto-populated data
 
   // 5. APPROVED USER VIEW (Sidebar + Content)
   return (

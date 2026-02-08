@@ -4,7 +4,11 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import AddCourseModal from "./AddCourseModal";
 
-export default function AddCourseButton() {
+interface AddCourseButtonProps {
+    buttonText?: string;
+}
+
+export default function AddCourseButton({ buttonText = "Add Course" }: AddCourseButtonProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     return (
@@ -14,7 +18,7 @@ export default function AddCourseButton() {
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-lg transition-opacity"
             >
                 <Plus className="w-4 h-4" />
-                Add Your First Course
+                {buttonText}
             </button>
 
             <AddCourseModal

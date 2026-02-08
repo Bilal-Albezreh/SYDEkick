@@ -32,30 +32,17 @@ export default async function DashboardPage() {
     activeTerm = preferredTerm;
   }
 
-  // If no preference or preferred term not found, use smart selection
+  // If no preference or preferred term not found, use the most recent term
   if (!activeTerm) {
     const { data: allTerms } = await supabase
       .from("terms")
       .select("id, label, season, start_date")
       .eq("user_id", user.id)
-      .order("start_date", { ascending: false });
+      .order("start_date", { ascending: false })
+      .limit(1);
 
     if (allTerms && allTerms.length > 0) {
-      // Prioritize terms that are NOT named "Personal" or have actual courses
-      const { data: termsWithCourses } = await supabase
-        .from("courses")
-        .select("term_id")
-        .eq("user_id", user.id);
-
-      const termIdsWithCourses = new Set(termsWithCourses?.map(c => c.term_id) || []);
-
-      // Find the most recent term that has courses
-      const academicTerm = allTerms.find(t =>
-        termIdsWithCourses.has(t.id) && !t.label.toLowerCase().includes("personal")
-      );
-
-      // Use academic term if found, otherwise use most recent term
-      activeTerm = academicTerm || allTerms[0];
+      activeTerm = allTerms[0];
     }
   }
 

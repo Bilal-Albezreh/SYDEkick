@@ -15,7 +15,8 @@ import {
     X,
     Clock,
     Briefcase,
-    Hourglass
+    Hourglass,
+    FolderOpen
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
@@ -43,6 +44,7 @@ export default function SidebarDark() {
     const links = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard }, // Overview (Widgets)
         { name: "Grades", href: "/dashboard/grades", icon: BookOpen },    // Calculator
+        { name: "Courses", href: "/dashboard/courses", icon: FolderOpen }, // Management
         { name: "Schedule", href: "/dashboard/schedule", icon: Clock },// Calendar
         { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
         { name: "Group", href: "/dashboard/groups", icon: Users },

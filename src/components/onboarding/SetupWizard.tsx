@@ -31,11 +31,19 @@ interface Program {
     university_id: string;
 }
 
-interface MasterTerm {
-    id: string;
-    label: string;
-    program_id: string;
-}
+// Hardcoded SYDE terms - always available for signup
+const SYDE_TERMS = [
+    { id: "1A", label: "1A" },
+    { id: "1B", label: "1B" },
+    { id: "2A", label: "2A" },
+    { id: "2B", label: "2B" },
+    { id: "3A", label: "3A" },
+    { id: "3B", label: "3B" },
+    { id: "4A", label: "4A" },
+    { id: "4B", label: "4B" },
+    { id: "5A", label: "5A" },
+    { id: "5B", label: "5B" },
+];
 
 type Step = "identity" | "term" | "launch" | "success";
 
@@ -57,9 +65,9 @@ export default function SetupWizard() {
     const [selectedUniversity, setSelectedUniversity] = useState<string | null>(null);
     const [programs, setPrograms] = useState<Program[]>([]);
     const [selectedProgram, setSelectedProgram] = useState<string | null>(null);
+    const [displayName, setDisplayName] = useState<string>("");
 
-    // Step 2: Term
-    const [masterTerms, setMasterTerms] = useState<MasterTerm[]>([]);
+    // Step 2: Term (using hardcoded SYDE_TERMS)
     const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
 
     // Step 3: Launch
@@ -121,30 +129,7 @@ export default function SetupWizard() {
         fetchPrograms();
     }, [selectedUniversity]);
 
-    // ==========================================
-    // STEP 2: FETCH TERMS WHEN PROGRAM SELECTED
-    // ==========================================
-    useEffect(() => {
-        if (!selectedProgram || currentStep !== "term") return;
-
-        async function fetchTerms() {
-            const { data, error } = await supabase
-                .from("master_terms")
-                .select("id, label, program_id")
-                .eq("program_id", selectedProgram)
-                .order("label");
-
-            if (error) {
-                console.error("Error fetching master terms:", error);
-                setError("Failed to load terms");
-                return;
-            }
-
-            setMasterTerms(data || []);
-        }
-
-        fetchTerms();
-    }, [selectedProgram, currentStep]);
+    // STEP 2: Terms are hardcoded as SYDE_TERMS constant - no fetch needed
 
     // ==========================================
     // NAVIGATION HANDLERS
@@ -152,6 +137,10 @@ export default function SetupWizard() {
     const handleNextFromIdentity = () => {
         if (!selectedProgram) {
             setError("Please select a program");
+            return;
+        }
+        if (!displayName.trim()) {
+            setError("Please enter your display name");
             return;
         }
         setError(null);
@@ -182,6 +171,7 @@ export default function SetupWizard() {
                 selectedTerm,
                 new Date(startDate),
                 termName,
+                displayName,
                 false // ✅ HARDCODED: Manual-only workflow (no preload)
             );
 
@@ -298,10 +288,29 @@ export default function SetupWizard() {
                                     </motion.div>
                                 )}
 
+                                {/* Display Name Input */}
+                                {selectedProgram && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                    >
+                                        <label className="block text-sm font-bold text-zinc-400 uppercase mb-3">
+                                            What should we call you?
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={displayName}
+                                            onChange={(e) => setDisplayName(e.target.value)}
+                                            placeholder="e.g., Alex, Jamie, or your preferred name"
+                                            className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none placeholder:text-zinc-500"
+                                        />
+                                    </motion.div>
+                                )}
+
                                 <div className="flex justify-end pt-4">
                                     <button
                                         onClick={handleNextFromIdentity}
-                                        disabled={!selectedProgram}
+                                        disabled={!selectedProgram || !displayName.trim()}
                                         className="flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-bold rounded-lg transition-colors"
                                     >
                                         Next <ArrowRight className="w-4 h-4" />
@@ -327,29 +336,23 @@ export default function SetupWizard() {
                                         Select Your Term
                                     </label>
 
-                                    <div className="grid grid-cols-3 gap-4">
-                                        {masterTerms.map((term) => (
+                                    <div className="grid grid-cols-5 gap-3">
+                                        {SYDE_TERMS.map((term) => (
                                             <button
                                                 key={term.id}
                                                 onClick={() => setSelectedTerm(term.id)}
                                                 className={`
-                          p-6 rounded-xl border-2 transition-all
-                          ${selectedTerm === term.id
+                                                    p-4 rounded-xl border-2 transition-all
+                                                    ${selectedTerm === term.id
                                                         ? "bg-cyan-500/20 border-cyan-500 text-white"
                                                         : "bg-zinc-800/30 border-zinc-700 text-zinc-400 hover:border-zinc-600"
                                                     }
-                        `}
+                                                `}
                                             >
-                                                <div className="text-2xl font-bold">{term.label}</div>
+                                                <div className="text-xl font-bold">{term.label}</div>
                                             </button>
                                         ))}
                                     </div>
-
-                                    {masterTerms.length === 0 && (
-                                        <p className="text-sm text-zinc-500 text-center py-8">
-                                            No terms available for this program yet.
-                                        </p>
-                                    )}
                                 </div>
 
                                 <div className="flex justify-between pt-4">

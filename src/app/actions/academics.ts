@@ -23,6 +23,7 @@ export async function setupUserTerm(
     masterTermId: string,
     startDate: Date,
     termName: string,
+    displayName: string,
     shouldPreload: boolean = true
 ) {
     try {
@@ -57,6 +58,8 @@ export async function setupUserTerm(
             .update({
                 program_id: programId,
                 university_id: program.university_id,
+                display_name: displayName,
+                current_term_label: masterTermId,
             })
             .eq("id", user.id);
 
@@ -69,16 +72,8 @@ export async function setupUserTerm(
         // STEP 3: CREATE USER TERM
         // ==========================================
 
-        // Fetch the label from master_terms
-        const { data: masterTerm, error: masterTermError } = await supabase
-            .from("master_terms")
-            .select("label")
-            .eq("id", masterTermId)
-            .single();
-
-        if (masterTermError || !masterTerm) {
-            return { success: false, error: "Master term not found" };
-        }
+        // For clean slate onboarding, we don't need to validate against master_terms
+        // Just use the termLabel (e.g., "2B") directly from user selection
 
         // Calculate end date (assuming 4 months = ~120 days)
         const endDate = new Date(startDate);
@@ -89,7 +84,7 @@ export async function setupUserTerm(
             .from("terms")
             .insert({
                 user_id: user.id,
-                label: masterTerm.label,
+                label: masterTermId, // This is actually the label like "2B", not a UUID
                 season: termName,
                 start_date: startDate.toISOString().split('T')[0],
                 end_date: endDate.toISOString().split('T')[0],

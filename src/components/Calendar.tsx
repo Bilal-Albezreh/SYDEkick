@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, DragStartEvent } from "@dnd-kit/core";
 import { DraggableCard, DroppableDay } from "@/components/calendar/DraggableComponents";
+import { motion, AnimatePresence } from "framer-motion";
 import { updateAssessmentDate } from "@/app/actions/assessments";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, Check, Clock, ExternalLink, Filter, X, Briefcase, Handshake, Laptop, Plus, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -670,13 +671,16 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                         <div
                                             key={item.uniqueId}
                                             className={cn(
-                                                "relative flex flex-col px-2 py-1.5 rounded-sm border-l-2 shadow-sm transition-all overflow-hidden cursor-pointer",
+                                                "relative flex flex-col px-2 py-1.5 rounded-sm border-l-4 shadow-sm transition-all overflow-hidden cursor-pointer",
                                                 "border-y-0 border-r-0",
-                                                item.is_completed && "opacity-40 grayscale border-dashed"
+                                                item.is_completed && "opacity-60 grayscale border-dashed"
                                             )}
                                             style={{
                                                 borderLeftColor: itemColor,
-                                                backgroundColor: `${itemColor}18`
+                                                // CHANGE: increased opacity from 20% (35) to 45% (70), and end from 4% (0a) to 10% (1a)
+                                                background: `linear-gradient(90deg, ${itemColor}60 0%, ${itemColor}1a 100%)`,
+                                                // OPTIONAL: Add a subtle glow to make it pop even more
+                                                boxShadow: `inset 1px 0 0 0 ${itemColor}40`
                                             }}
                                             onClick={(e) => {
                                                 // Open reschedule/edit modal when card is clicked
@@ -795,12 +799,16 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
                                         return (
                                             <div key={item.uniqueId} className={cn(
-                                                "group flex items-center gap-6 p-4 rounded-xl border transition-all duration-200 relative overflow-hidden mb-3",
+                                                "group flex items-center gap-6 p-4 rounded-xl border-l-4 transition-all duration-200 relative overflow-hidden mb-3",
                                                 "bg-white/5 backdrop-blur-md border-white/5 hover:bg-white/10 hover:border-white/20",
-                                                item.is_completed && "opacity-40 grayscale"
-                                            )}>
-                                                <div className="absolute left-0 top-0 bottom-0 w-1 z-20" style={{ backgroundColor: item.courseColor || getCourseColor(item.courseCode) }} />
-                                                <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300 opacity-[0.08] group-hover:opacity-[0.12]" style={{ backgroundColor: item.courseColor || getCourseColor(item.courseCode) }} />
+                                                "border-y border-r", // Keep other borders subtle
+                                                item.is_completed && "opacity-60 grayscale border-dashed"
+                                            )}
+                                                style={{
+                                                    borderLeftColor: item.courseColor || getCourseColor(item.courseCode),
+                                                    background: `linear-gradient(90deg, ${(item.courseColor || getCourseColor(item.courseCode))}25 0%, ${(item.courseColor || getCourseColor(item.courseCode))}05 100%)`
+                                                }}>
+                                                {/* Removed old overlays for cleaner look */}
 
                                                 <button onClick={() => handleToggleComplete(item.uniqueId, item.is_completed)} className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ml-1 relative z-10", item.is_completed ? "bg-emerald-500 border-emerald-500 text-white scale-110" : "border-white/20 hover:border-white text-transparent")}>
                                                     <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -1072,98 +1080,198 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                     </div>
                 </div>
             )}
-            {/* [NEW] ADD TASK DIALOG */}
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="bg-[#111] border-gray-800 text-white">
-                    <DialogHeader>
-                        <DialogTitle>Add New Event</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-2 space-y-4">
+            {/* [NEW] ADD TASK DIALOG (CUSTOM OBSIDIAN GLASS) */}
+            <AnimatePresence>
+                {isAddModalOpen && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsAddModalOpen(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                        />
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
-                            <Input
-                                value={newTaskData.title}
-                                onChange={(e) => setNewTaskData({ ...newTaskData, title: e.target.value })}
-                                placeholder="e.g. Study for physics"
-                                className="bg-[#0a0a0a] border-gray-800"
+                        {/* Modal Container */}
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            className="w-full max-w-md relative overflow-hidden"
+                        >
+                            {/* Dynamic Glow Shadow */}
+                            <div
+                                className="absolute inset-0 blur-3xl opacity-20 transition-colors duration-700"
+                                style={{ backgroundColor: newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af" }}
                             />
-                        </div>
 
-                        <div className="flex gap-4">
-                            <div className="flex-1 space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Type</label>
-                                <div className="flex items-center gap-2 p-1 bg-[#0a0a0a] rounded-lg border border-gray-800">
+                            <div
+                                className="relative backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/5 transition-colors duration-500"
+                                style={{
+                                    background: `linear-gradient(135deg, rgba(9, 9, 11, 0.45) 0%, ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}15 100%)`
+                                }}
+                            >
+                                {/* Ambient Background Effects */}
+                                <div className="absolute inset-0 z-0 pointer-events-none">
+                                    <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
+                                        style={{
+                                            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_70%,transparent_100%)]" />
+                                </div>
+
+                                {/* Header */}
+                                <div className="border-b border-white/5 px-6 py-5 flex items-center justify-between bg-white/[0.02] relative z-10">
+                                    <div className="flex items-center gap-3">
+                                        <div
+                                            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 shadow-inner"
+                                            style={{
+                                                backgroundColor: `${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}20`,
+                                                color: newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"
+                                            }}
+                                        >
+                                            <CalendarIcon className="w-5 h-5" strokeWidth={2.5} />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-white tracking-tight">Add Event</h2>
+                                            <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">New Calendar Item</p>
+                                        </div>
+                                    </div>
                                     <button
-                                        onClick={() => setNewTaskData({ ...newTaskData, type: 'personal' })}
-                                        className={cn("flex-1 text-xs py-2 rounded-md font-bold transition-all", newTaskData.type === 'personal' ? "bg-gray-800 text-white" : "text-gray-500 hover:text-white")}
+                                        onClick={() => setIsAddModalOpen(false)}
+                                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-500 hover:text-white"
                                     >
-                                        Personal
+                                        <X className="w-5 h-5" />
                                     </button>
-                                    <button
-                                        onClick={() => setNewTaskData({ ...newTaskData, type: 'course_work' })}
-                                        className={cn("flex-1 text-xs py-2 rounded-md font-bold transition-all", newTaskData.type === 'course_work' ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-white")}
-                                    >
-                                        Course Work
-                                    </button>
+                                </div>
+
+                                {/* Form Content */}
+                                <div className="p-6 space-y-5 relative z-10">
+
+                                    {/* Title Input */}
+                                    <div className="group">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                            Title
+                                        </label>
+                                        <input
+                                            value={newTaskData.title}
+                                            onChange={(e) => setNewTaskData({ ...newTaskData, title: e.target.value })}
+                                            placeholder="e.g. Study for physics"
+                                            className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner"
+                                        />
+                                    </div>
+
+                                    {/* Type Selection */}
+                                    <div className="flex gap-4">
+                                        <div className="flex-1 space-y-2">
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                                Type
+                                            </label>
+                                            <div className="flex items-center gap-1 p-1 bg-white/5 rounded-xl border border-white/5">
+                                                <button
+                                                    onClick={() => setNewTaskData({ ...newTaskData, type: 'personal' })}
+                                                    className={cn(
+                                                        "flex-1 text-xs py-2.5 rounded-lg font-bold transition-all",
+                                                        newTaskData.type === 'personal'
+                                                            ? "bg-white/10 text-white shadow-sm"
+                                                            : "text-gray-500 hover:text-white hover:bg-white/5"
+                                                    )}
+                                                >
+                                                    Personal
+                                                </button>
+                                                <button
+                                                    onClick={() => setNewTaskData({ ...newTaskData, type: 'course_work' })}
+                                                    className={cn(
+                                                        "flex-1 text-xs py-2.5 rounded-lg font-bold transition-all",
+                                                        newTaskData.type === 'course_work'
+                                                            ? "bg-blue-500/20 text-blue-400 shadow-sm"
+                                                            : "text-gray-500 hover:text-white hover:bg-white/5"
+                                                    )}
+                                                >
+                                                    Course Work
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {newTaskData.type === 'course_work' && (
+                                            <div className="flex-1 space-y-2 animate-in fade-in slide-in-from-left-2">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                                    Select Course
+                                                </label>
+                                                <select
+                                                    value={newTaskData.course_id}
+                                                    onChange={(e) => setNewTaskData({ ...newTaskData, course_id: e.target.value })}
+                                                    className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-white focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium appearance-none cursor-pointer"
+                                                >
+                                                    <option value="" className="bg-zinc-900 text-gray-500">Select...</option>
+                                                    {courses.map((c: any) => (
+                                                        <option key={c.id} value={c.id} className="bg-zinc-900 text-white">
+                                                            {c.course_code}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Date Picker (Obsidian Style) */}
+                                    <div className="group">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                            Date
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                ref={newTaskDateRef}
+                                                type="date"
+                                                value={newTaskData.due_date}
+                                                onChange={(e) => setNewTaskData({ ...newTaskData, due_date: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-4 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:w-full"
+                                            />
+                                            <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-white pointer-events-none" />
+                                        </div>
+                                    </div>
+
+                                    {/* Action Button (Glass Gem) */}
+                                    <div className="pt-2">
+                                        <button
+                                            onClick={handleCreateTask}
+                                            disabled={isCreatingTask.current}
+                                            className="group relative w-full overflow-hidden rounded-xl py-4 transition-all active:scale-[0.98] shadow-lg hover:brightness-110"
+                                            style={{
+                                                background: `linear-gradient(to bottom, ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}cc, ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}99)`,
+                                                borderColor: 'rgba(255,255,255,0.1)',
+                                                boxShadow: `
+                                                    inset 0 1px 0 0 rgba(255,255,255,0.2), 
+                                                    0 4px 20px -2px ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}40,
+                                                    0 0 0 1px rgba(0,0,0,0.2)
+                                                `
+                                            }}
+                                        >
+                                            <div className="flex items-center justify-center gap-2 text-white font-bold tracking-wide text-shadow-sm">
+                                                {isCreatingTask.current ? (
+                                                    <>
+                                                        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                        <span>Creating...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span>Create Event</span>
+                                                        <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                                    </>
+                                                )}
+                                            </div>
+                                        </button>
+                                    </div>
+
                                 </div>
                             </div>
-
-                            {newTaskData.type === 'course_work' && (
-                                <div className="flex-1 space-y-2 animate-in fade-in slide-in-from-left-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Select Course</label>
-                                    <Select onValueChange={(val) => setNewTaskData({ ...newTaskData, course_id: val })}>
-                                        <SelectTrigger className="bg-[#0a0a0a] border-gray-800 h-[42px]">
-                                            <SelectValue placeholder="Course..." />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-[#111] border-gray-800 text-white">
-                                            {courses.map((c: any) => (
-                                                <SelectItem key={c.id} value={c.id}>{c.course_code}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase">Date</label>
-                            <div className="relative group">
-                                <Input
-                                    ref={newTaskDateRef}
-                                    type="date"
-                                    value={newTaskData.due_date}
-                                    onChange={(e) => setNewTaskData({ ...newTaskData, due_date: e.target.value })}
-                                    className="bg-[#0a0a0a] border-gray-800 text-white [&::-webkit-calendar-picker-indicator]:hidden"
-                                />
-                                {/* Custom Clickable Overlay */}
-                                <div
-                                    className="absolute right-0 top-0 h-full w-1/2 flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-r-md transition-colors"
-                                    onClick={() => (newTaskDateRef.current as any)?.showPicker?.()}
-                                >
-                                    <CalendarIcon className="w-5 h-5 text-white" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase">Description (Optional)</label>
-                            <Input
-                                value={newTaskData.description}
-                                onChange={(e) => setNewTaskData({ ...newTaskData, description: e.target.value })}
-                                placeholder="Details..."
-                                className="bg-[#0a0a0a] border-gray-800"
-                            />
-                        </div>
-
+                        </motion.div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAddModalOpen(false)} className="border-gray-800 hover:bg-white/5 text-gray-400">Cancel</Button>
-                        <Button onClick={handleCreateTask} className="bg-white text-black hover:bg-gray-200 font-bold">Create Event</Button>
-                    </DialogFooter>
-                </DialogContent>
-
-            </Dialog>
+                )}
+            </AnimatePresence>
 
             {/* EDIT EVENT DIALOG (Glass UI Redesign) */}
             <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>

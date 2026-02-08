@@ -2,36 +2,38 @@
 
 import { useState } from "react";
 import { createCourse } from "@/app/actions/courses";
-import { X, Loader2, Plus } from "lucide-react";
+import { X, Loader2, Plus, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface AddCourseModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-const PRESET_COLORS = [
-    { name: "Blue", hex: "#3b82f6" },
-    { name: "Purple", hex: "#8b5cf6" },
-    { name: "Pink", hex: "#be185d" },
-    { name: "Red", hex: "#ef4444" },
-    { name: "Orange", hex: "#f97316" },
-    { name: "Yellow", hex: "#eab308" },
-    { name: "Green", hex: "#10b981" },
-    { name: "Teal", hex: "#06b6d4" },
-    { name: "Indigo", hex: "#6366f1" },
-    { name: "Gray", hex: "#6b7280" },
+// Jewel Tones for "Expensive" Feel
+const COURSE_COLORS = [
+    { name: "Electric Azure", hex: "#4361ee" },
+    { name: "Royal Amethyst", hex: "#7209b7" },
+    { name: "Neon Rose", hex: "#f72585" },
+    { name: "Diamond Cyan", hex: "#4cc9f0" },
+    { name: "Caribbean Emerald", hex: "#06d6a0" },
+    { name: "Hermes Orange", hex: "#fb5607" },
+    { name: "Solid Gold", hex: "#ffbe0b" },
+    { name: "Midnight Indigo", hex: "#3a0ca3" },
+    { name: "Matte Crimson", hex: "#e63946" },
+    { name: "Pacific Teal", hex: "#0096c7" },
 ];
 
 export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps) {
     const [courseCode, setCourseCode] = useState("");
     const [courseName, setCourseName] = useState("");
-    const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0].hex);
+    const [selectedColor, setSelectedColor] = useState(COURSE_COLORS[0].hex);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (!courseCode.trim() || !courseName.trim()) {
             setError("Please fill in all fields");
             return;
@@ -41,12 +43,7 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
         setError(null);
 
         try {
-            const result = await createCourse(
-                courseCode,
-                courseName,
-                selectedColor
-            );
-
+            const result = await createCourse(courseCode, courseName, selectedColor);
             if (!result.success) {
                 setError(result.error || "Failed to create course");
                 setLoading(false);
@@ -56,7 +53,7 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
             // Success - reset form and close
             setCourseCode("");
             setCourseName("");
-            setSelectedColor(PRESET_COLORS[0].hex);
+            setSelectedColor(COURSE_COLORS[0].hex);
             setError(null);
             setLoading(false);
             onClose();
@@ -71,131 +68,200 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
         if (!loading) {
             setCourseCode("");
             setCourseName("");
-            setSelectedColor(PRESET_COLORS[0].hex);
+            setSelectedColor(COURSE_COLORS[0].hex);
             setError(null);
             onClose();
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="w-full max-w-md bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-                {/* Header */}
-                <div className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                            <Plus className="w-5 h-5 text-cyan-400" />
-                        </div>
-                        <h2 className="text-xl font-bold text-white">Add Course</h2>
-                    </div>
-                    <button
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
+                    {/* Backdrop */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         onClick={handleClose}
-                        disabled={loading}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-50"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                    />
+
+                    {/* Modal Container */}
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        className="w-full max-w-md relative overflow-hidden"
                     >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                    {/* Error Display */}
-                    {error && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                            <p className="text-sm text-red-400">{error}</p>
-                        </div>
-                    )}
-
-                    {/* Course Code */}
-                    <div>
-                        <label className="block text-sm font-bold text-zinc-400 uppercase mb-2">
-                            Course Code
-                        </label>
-                        <input
-                            type="text"
-                            value={courseCode}
-                            onChange={(e) => setCourseCode(e.target.value)}
-                            placeholder="e.g., SYDE 101"
-                            className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder:text-zinc-600 focus:border-cyan-500 focus:outline-none transition-colors"
-                            disabled={loading}
-                            required
+                        {/* Dynamic Glow Shadow */}
+                        <div
+                            className="absolute inset-0 blur-3xl opacity-20 transition-colors duration-700"
+                            style={{ backgroundColor: selectedColor }}
                         />
-                    </div>
 
-                    {/* Course Name */}
-                    <div>
-                        <label className="block text-sm font-bold text-zinc-400 uppercase mb-2">
-                            Course Name
-                        </label>
-                        <input
-                            type="text"
-                            value={courseName}
-                            onChange={(e) => setCourseName(e.target.value)}
-                            placeholder="e.g., Introduction to Systems Design"
-                            className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder:text-zinc-600 focus:border-cyan-500 focus:outline-none transition-colors"
-                            disabled={loading}
-                            required
-                        />
-                    </div>
-
-                    {/* Color Picker */}
-                    <div>
-                        <label className="block text-sm font-bold text-zinc-400 uppercase mb-3">
-                            Course Color
-                        </label>
-                        <div className="grid grid-cols-5 gap-3">
-                            {PRESET_COLORS.map((color) => (
-                                <button
-                                    key={color.hex}
-                                    type="button"
-                                    onClick={() => setSelectedColor(color.hex)}
-                                    disabled={loading}
-                                    className={`
-                    w-12 h-12 rounded-lg transition-all
-                    ${selectedColor === color.hex
-                                            ? "ring-2 ring-white ring-offset-2 ring-offset-zinc-900 scale-110"
-                                            : "hover:scale-105 opacity-70 hover:opacity-100"
-                                        }
-                  `}
-                                    style={{ backgroundColor: color.hex }}
-                                    title={color.name}
+                        <div
+                            className="relative backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/5 transition-colors duration-500"
+                            style={{
+                                background: `linear-gradient(135deg, rgba(9, 9, 11, 0.45) 0%, ${selectedColor}15 100%)`
+                            }}
+                        >
+                            {/* Ambient Background Effects */}
+                            <div className="absolute inset-0 z-0 pointer-events-none">
+                                {/* Noise Texture */}
+                                <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
+                                    style={{
+                                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+                                    }}
                                 />
-                            ))}
-                        </div>
-                    </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            disabled={loading}
-                            className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-1 px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-lg transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Creating...
-                                </>
-                            ) : (
-                                <>
-                                    <Plus className="w-4 h-4" />
-                                    Add Course
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                                {/* Subtle Grid */}
+                                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_70%,transparent_100%)]" />
+                            </div>
+
+                            {/* Header */}
+                            <div className="border-b border-white/5 px-6 py-5 flex items-center justify-between bg-white/[0.02]">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 shadow-inner"
+                                        style={{ backgroundColor: `${selectedColor}20`, color: selectedColor }}
+                                    >
+                                        <Plus className="w-5 h-5" strokeWidth={3} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white tracking-tight">Add New Course</h2>
+                                        <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">New Academic Journey</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleClose}
+                                    disabled={loading}
+                                    className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-500 hover:text-white disabled:opacity-50"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Form */}
+                            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                                {/* Error Display */}
+                                {error && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3"
+                                    >
+                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                        <p className="text-sm font-medium text-red-400">{error}</p>
+                                    </motion.div>
+                                )}
+
+                                <div className="space-y-4">
+                                    {/* Course Code */}
+                                    <div className="group">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                            Course Code
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={courseCode}
+                                                onChange={(e) => setCourseCode(e.target.value)}
+                                                placeholder="e.g., SYDE 101"
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner"
+                                                disabled={loading}
+                                                autoFocus
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Course Name */}
+                                    <div className="group">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                            Course Name
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={courseName}
+                                                onChange={(e) => setCourseName(e.target.value)}
+                                                placeholder="e.g., Introduction to Systems Design"
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner"
+                                                disabled={loading}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Color Picker */}
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                                        Theme Color
+                                    </label>
+                                    <div className="grid grid-cols-5 gap-3">
+                                        {COURSE_COLORS.map((color) => (
+                                            <button
+                                                key={color.hex}
+                                                type="button"
+                                                onClick={() => setSelectedColor(color.hex)}
+                                                disabled={loading}
+                                                className="group relative flex items-center justify-center outline-none"
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        "w-12 h-12 rounded-xl transition-all duration-300 shadow-lg",
+                                                        selectedColor === color.hex
+                                                            ? "scale-100 ring-2 ring-white ring-offset-2 ring-offset-[#18181b]"
+                                                            : "scale-90 opacity-40 hover:opacity-80 hover:scale-95"
+                                                    )}
+                                                    style={{ backgroundColor: color.hex }}
+                                                />
+                                                {/* Tooltip */}
+                                                <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
+                                                    {color.name}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="pt-2">
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="group relative w-full overflow-hidden rounded-xl py-4 transition-all active:scale-[0.98] shadow-lg hover:brightness-110"
+                                        style={{
+                                            background: `linear-gradient(to bottom, ${selectedColor}cc, ${selectedColor}99)`,
+                                            borderColor: 'rgba(255,255,255,0.1)',
+                                            boxShadow: `
+                                                inset 0 1px 0 0 rgba(255,255,255,0.2), 
+                                                0 4px 20px -2px ${selectedColor}40,
+                                                0 0 0 1px rgba(0,0,0,0.2)
+                                            `
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-center gap-2 text-white font-bold tracking-wide text-shadow-sm">
+                                            {loading ? (
+                                                <>
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                    <span>Creating Course...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>Create Course</span>
+                                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                                </>
+                                            )}
+                                        </div>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     );
 }

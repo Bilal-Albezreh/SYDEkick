@@ -19,9 +19,10 @@ interface ProfileProps {
     avatar_url: string | null;
     is_participating: boolean;
   };
+  academicSettings?: React.ReactNode;
 }
 
-export default function ProfileForm({ user, profile }: ProfileProps) {
+export default function ProfileForm({ user, profile, academicSettings }: ProfileProps) {
   // --- STATE: PROFILE & AVATAR ---
   const [name, setName] = useState(profile.full_name || "");
   const [isAnon, setIsAnon] = useState(profile.is_anonymous);
@@ -403,6 +404,9 @@ export default function ProfileForm({ user, profile }: ProfileProps) {
           </div>
         </div>
         */}
+
+        {/* Academic Settings Card - if provided */}
+        {academicSettings && academicSettings}
       </div>
     </div>
   );

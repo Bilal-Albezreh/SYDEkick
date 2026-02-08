@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import ProfileForm from "@/components/ProfileForm";
+import AcademicSettingsCard from "@/components/settings/AcademicSettingsCard";
 import { Settings } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -31,7 +32,17 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      <ProfileForm user={{ email: user.email || "" }} profile={profile} />
+      <ProfileForm
+        user={{ email: user.email || "" }}
+        profile={profile}
+        academicSettings={
+          <AcademicSettingsCard
+            initialUniversityId={profile?.university_id || null}
+            initialProgramId={profile?.program_id || null}
+            initialTermLabel={profile?.current_term_label || null}
+          />
+        }
+      />
 
     </div>
   );

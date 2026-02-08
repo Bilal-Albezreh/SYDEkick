@@ -21,25 +21,32 @@ export default async function Home() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // If user is logged in, check if they have an active term
+  // Check if user is logged in AND has completed onboarding
+  let needsOnboarding = false;
   if (user) {
-    const { data: activeTerm } = await supabase
+    // Check if user has at least one term (indicates they've completed setup)
+    const { data: userTerms } = await supabase
       .from("terms")
       .select("id")
       .eq("user_id", user.id)
-      .eq("is_current", true)
-      .maybeSingle();
+      .limit(1);
 
-    if (activeTerm) {
-      // Has active term - go to dashboard
+    if (userTerms && userTerms.length > 0) {
+      // User has completed onboarding, go to dashboard
       redirect("/dashboard");
     } else {
-      // No active term - show setup wizard
-      return <SetupWizard />;
+      // User is logged in but hasn't completed setup
+      needsOnboarding = true;
     }
   }
 
 
+  // Show SetupWizard for new users who need onboarding
+  if (needsOnboarding) {
+    return <SetupWizard />;
+  }
+
+  // Landing page for non-authenticated users
   return (
     <main className="min-h-screen text-white relative overflow-x-clip">
 
