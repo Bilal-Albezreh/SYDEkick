@@ -16,6 +16,9 @@ export async function createPersonalTask(data: {
     type: 'personal' | 'course_work';
     course_id?: string;
 }) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'personalTasks.ts:createPersonalTask',message:'createPersonalTask entry',data:{hypothesisId:'H1,H2,H4',inputType:data.type,hasCourseId:!!data.course_id},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     try {
         // ==========================================
         // STEP 1: AUTHENTICATION CHECK
@@ -38,27 +41,38 @@ export async function createPersonalTask(data: {
             return { success: false, error: "Course selection is required for course work" };
         }
 
+        const insertPayload = {
+            user_id: user.id,
+            title: data.title.trim(),
+            description: data.description?.trim() || null,
+            due_date: data.due_date,
+            type: data.type,
+            course_id: data.type === 'course_work' ? data.course_id : null,
+            is_completed: false
+        };
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'personalTasks.ts:before insert',message:'insert payload keys',data:{hypothesisId:'H2,H3',payloadKeys:Object.keys(insertPayload)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+
         // ==========================================
         // STEP 3: INSERT PERSONAL TASK
         // ==========================================
         const { data: newTask, error: insertError } = await supabase
             .from("personal_tasks")
-            .insert({
-                user_id: user.id,
-                title: data.title.trim(),
-                description: data.description?.trim() || null,
-                due_date: data.due_date,
-                type: data.type,
-                course_id: data.type === 'course_work' ? data.course_id : null,
-                is_completed: false
-            })
+            .insert(insertPayload)
             .select("*")  // CRITICAL: Return full object with UUID
             .single();
 
         if (insertError) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'personalTasks.ts:insertError',message:'Supabase insert error',data:{hypothesisId:'H1,H2,H3,H4,H5',code:insertError.code,message:insertError.message,details:insertError.details},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
             console.error("❌ Personal task insert error:", insertError);
             return { success: false, error: `Failed to create task: ${insertError.message}` };
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'personalTasks.ts:success',message:'insert success',data:{hypothesisId:'H1',taskId:newTask?.id},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
 
         // ==========================================
         // STEP 4: REVALIDATE PATHS

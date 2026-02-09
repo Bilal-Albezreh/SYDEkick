@@ -118,6 +118,7 @@ export default function CareerControls() {
                            <SelectItem value="rejected">Rejected</SelectItem>
                            <SelectItem value="ghosted">Ghosted</SelectItem>
                            <SelectItem value="interview">Interviews</SelectItem>
+                           <SelectItem value="oa">Online Assessments</SelectItem>
                            <SelectItem value="offer">Offers</SelectItem>
                            <SelectItem value="no_offer">No Offers</SelectItem>
                         </SelectContent>

@@ -149,17 +149,19 @@ export async function deleteAssessment(assessmentId: string) {
 }
 
 /**
- * Update assessment details (date and/or score) - Unified Edit Modal
+ * Update assessment details (date and/or score and/or name) - Unified Edit Modal
  * 
  * @param assessmentId - The assessment ID to update
  * @param dueDate - Optional new due date
  * @param score - Optional new score (0-100)
+ * @param name - Optional new name
  * @returns Success status and optional error message
  */
 export async function updateAssessmentDetails(
     assessmentId: string,
     dueDate?: string,
-    score?: number | null
+    score?: number | null,
+    name?: string
 ) {
     try {
         // ==========================================
@@ -179,6 +181,10 @@ export async function updateAssessmentDetails(
 
         if (dueDate !== undefined) {
             updatePayload.due_date = dueDate;
+        }
+
+        if (name !== undefined && name.trim() !== "") {
+            updatePayload.name = name.trim();
         }
 
         if (score !== undefined && score !== null) {

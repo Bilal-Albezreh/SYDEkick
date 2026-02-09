@@ -108,8 +108,12 @@ const getAssessmentType = (name: string, type?: string) => {
 const getItemDateKey = (dateInput: string | Date | null | undefined): string | null => {
     if (!dateInput) return null;
 
-    // [FIX] Always parse to a generic Date object first to respect the browser's Local Timezone.
-    // This prevents "Date Drift" where 8PM EST (1AM UTC Next Day) would show up on the next day.
+    // If it's already a simple date string (YYYY-MM-DD), return as-is
+    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        return dateInput;
+    }
+
+    // For timestamp strings or Date objects, parse carefully
     const date = new Date(dateInput);
 
     if (isNaN(date.getTime())) return null;
@@ -142,11 +146,12 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         description: "" // Optional
     });
 
-    // [NEW] EDIT EVENT MODAL STATE (Date + Grade)
+    // [NEW] EDIT EVENT MODAL STATE (Date + Grade + Name)
     const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
     const [rescheduleItem, setRescheduleItem] = useState<any>(null);
     const [rescheduleDate, setRescheduleDate] = useState("");
     const [rescheduleScore, setRescheduleScore] = useState<string>(""); // For grade input
+    const [rescheduleName, setRescheduleName] = useState<string>(""); // For event name
 
     // [DND] Drag-and-Drop State
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -165,6 +170,15 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const newTaskDateRef = useRef<HTMLInputElement>(null);
     const rescheduleDateRef = useRef<HTMLInputElement>(null);
 
+    // Helper to get the selected course color
+    const getSelectedCourseColor = () => {
+        if (newTaskData.type !== 'course_work' || !newTaskData.course_id) {
+            return "#9ca3af"; // Gray for personal tasks
+        }
+        const selectedCourse = courses.find((c: any) => c.id === newTaskData.course_id);
+        return selectedCourse?.color || "#3b82f6"; // Fallback to blue
+    };
+
     // Auto-scroll to today's cell on mount
     useEffect(() => {
         const todayCell = document.getElementById('today-cell');
@@ -176,14 +190,27 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const handleRescheduleClick = (item: any, e: React.MouseEvent) => {
         e.stopPropagation();
         setRescheduleItem(item);
+        setRescheduleName(item.name || ""); // Set initial name
 
-        // [FIX] Smart Initialization
-        // Interviews: Preserve Time (use timezone offset hack)
-        // Assessments/Tasks: Force Noon (prevent Midnight Drift from legacy data)
+        // [FIX] Smart Initialization with proper local time parsing
         if (item.type === 'interview' || item.type === 'oa') {
-            const d = new Date(item.due_date);
-            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-            setRescheduleDate(d.toISOString().slice(0, 16));
+            // item.originalDate might be "2026-02-20T19:30:00" or "2026-02-20 19:30:00"
+            const dateStr = (item.originalDate || item.due_date).replace(' ', 'T');
+            
+            // Extract components manually to treat as local time
+            const [datePart, timePart] = dateStr.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hour, minute] = (timePart || '00:00').split(':').map(Number);
+            
+            // Create Date in local timezone
+            const d = new Date(year, month - 1, day, hour, minute);
+            
+            // Format as YYYY-MM-DDTHH:MM for datetime-local input
+            const formattedMonth = String(d.getMonth() + 1).padStart(2, '0');
+            const formattedDay = String(d.getDate()).padStart(2, '0');
+            const formattedHours = String(d.getHours()).padStart(2, '0');
+            const formattedMinutes = String(d.getMinutes()).padStart(2, '0');
+            setRescheduleDate(`${d.getFullYear()}-${formattedMonth}-${formattedDay}T${formattedHours}:${formattedMinutes}`);
         } else {
             const dateStr = item.due_date.split('T')[0];
             setRescheduleDate(`${dateStr}T12:00`);
@@ -239,7 +266,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             setPersonalTasks((prev: any[]) => {
                 return prev.map(task => {
                     if (task.id === personalTask.id) {
-                        return { ...task, due_date: `${overDate}T12:00:00` };
+                        // Send raw YYYY-MM-DD string (no timezone conversion)
+                        return { ...task, due_date: overDate };
                     }
                     return task;
                 });
@@ -247,12 +275,12 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
             // Server Action (background)
             startTransition(async () => {
-                const result = await updatePersonalTaskDate(personalTask.id, `${overDate}T12:00:00`);
+                const result = await updatePersonalTaskDate(personalTask.id, overDate);
                 if (!result.success) {
                     console.error("❌ [DRAG] Personal Task Update FAILED");
                     console.error("   Error:", result.error);
                     console.error("   Task ID:", personalTask.id);
-                    console.error("   New Date:", `${overDate}T12:00:00`);
+                    console.error("   New Date:", overDate);
                     setPersonalTasks(oldPersonalTasks); // Rollback on error
                 } else {
                     console.log("✅ [DRAG] Personal Task Updated Successfully");
@@ -284,7 +312,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                     ...course,
                     assessments: course.assessments.map((assessment: any) => {
                         if (assessment.id === activeId) {
-                            return { ...assessment, due_date: `${overDate}T12:00:00` };
+                            // Send raw YYYY-MM-DD string (no timezone conversion)
+                            return { ...assessment, due_date: overDate };
                         }
                         return assessment;
                     })
@@ -294,12 +323,12 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
         // Server Action (background)
         startTransition(async () => {
-            const result = await updateAssessmentDate(activeId, `${overDate}T12:00:00`);
+            const result = await updateAssessmentDate(activeId, overDate);
             if (!result.success) {
                 console.error("❌ [DRAG] Assessment Update FAILED");
                 console.error("   Error:", result.error);
                 console.error("   Assessment ID:", activeId);
-                console.error("   New Date:", `${overDate}T12:00:00`);
+                console.error("   New Date:", overDate);
                 setCourses(oldCourses); // Rollback on error
             } else {
                 console.log("✅ [DRAG] Assessment Updated Successfully");
@@ -315,17 +344,18 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
             let datePayload = rescheduleDate;
             const itemType = rescheduleItem.type || 'assessment';
+            const nameChanged = rescheduleName !== rescheduleItem.name;
 
             // UNIFIED HANDLER LOGIC
-            // 1. Career Events (Time-Centric) -> Keep Exact Time
+            // 1. Career Events (Time-Centric) -> Send raw "YYYY-MM-DDTHH:MM" string
             if (itemType === 'interview' || itemType === 'oa') {
-                datePayload = new Date(rescheduleDate).toISOString();
+                // rescheduleDate is already "YYYY-MM-DDTHH:MM" from datetime-local input
+                datePayload = rescheduleDate; // Send as-is (local time string)
             }
-            // 2. Assignments/Tasks (Date-Centric) -> Force Noon Local Time
+            // 2. Assignments/Tasks (Date-Centric) -> Send raw YYYY-MM-DD string
             else {
-                const d = new Date(rescheduleDate);
-                d.setHours(12, 0, 0, 0); // Force Noon
-                datePayload = d.toISOString();
+                // Extract just the date part (YYYY-MM-DD)
+                datePayload = rescheduleDate.split('T')[0];
             }
 
             // Extract ID safely
@@ -340,28 +370,37 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 return;
             }
 
-            console.log(`[Edit] Payload: ID=${itemId}, Type=${itemType}, Date=${datePayload}`);
+            console.log(`[Edit] Payload: ID=${itemId}, Type=${itemType}, Date=${datePayload}, Name=${rescheduleName}`);
 
             // For assessments with grade input, use the unified update action
             if (itemType === 'assessment' && rescheduleScore !== "") {
                 const scoreValue = parseFloat(rescheduleScore);
                 if (!isNaN(scoreValue)) {
-                    await updateAssessmentDetails(itemId, datePayload, scoreValue);
+                    await updateAssessmentDetails(itemId, datePayload, scoreValue, nameChanged ? rescheduleName : undefined);
                 } else {
                     // Only update date if score is invalid
                     await updateItemDateDirect(itemId, itemType, datePayload);
+                    if (nameChanged) {
+                        await updateAssessmentDetails(itemId, undefined, undefined, rescheduleName);
+                    }
                 }
             } else if (itemType === 'assessment') {
-                // Assessment with no score - just update date
-                await updateItemDateDirect(itemId, itemType, datePayload);
+                // Assessment with no score - update date and/or name
+                if (nameChanged) {
+                    await updateAssessmentDetails(itemId, datePayload, undefined, rescheduleName);
+                } else {
+                    await updateItemDateDirect(itemId, itemType, datePayload);
+                }
             } else {
                 // Non-assessment items (interviews, OAs, personal)
                 await updateItemDateDirect(itemId, itemType, datePayload);
+                // TODO: Add name update support for personal tasks and career events
             }
 
             setIsRescheduleOpen(false);
             setRescheduleItem(null);
             setRescheduleScore("");
+            setRescheduleName("");
             router.refresh();
         } catch (error) {
             console.error("Failed to save changes", error);
@@ -407,19 +446,32 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 // Timezone Agnostic Key
                 const dateKey = getItemDateKey(i.interview_date);
 
-                // Safe Time Display (Respect Local Timezone)
+                // Safe Time Display (Parse as local time)
                 let timeStr = "";
                 try {
                     if (i.interview_date) {
-                        const dateObj = new Date(i.interview_date);
-                        // Format: "2:00 PM"
+                        // Parse datetime string as local time (not UTC)
+                        // Format from DB might be "2026-02-20T19:30:00" or "2026-02-20 19:30:00"
+                        const dateStr = i.interview_date.replace(' ', 'T'); // Normalize format
+                        
+                        // Extract components manually to avoid timezone issues
+                        const [datePart, timePart] = dateStr.split('T');
+                        const [year, month, day] = datePart.split('-').map(Number);
+                        const [hour, minute] = (timePart || '00:00').split(':').map(Number);
+                        
+                        // Create Date in local timezone
+                        const dateObj = new Date(year, month - 1, day, hour, minute);
+                        
+                        // Format: "7:30 PM"
                         timeStr = dateObj.toLocaleTimeString('en-US', {
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true
                         });
                     }
-                } catch (e) { }
+                } catch (e) { 
+                    console.error("Error parsing interview date:", i.interview_date, e);
+                }
 
                 const isOA = i.type === 'oa';
                 const code = isOA ? "OA" : "INTERVIEW";
@@ -518,15 +570,22 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         isCreatingTask.current = true;
 
         try {
+            // #region agent log
+            const createInput = { title: newTaskData.title, due_date: newTaskData.due_date, type: newTaskData.type, course_id: newTaskData.type === 'course_work' ? newTaskData.course_id : undefined, description: newTaskData.description };
+            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Calendar.tsx:handleCreateTask',message:'calling createPersonalTask',data:{hypothesisId:'H4',type:createInput.type,hasCourseId:!!createInput.course_id},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
             // [CRITICAL] Wait for server response with REAL UUID
             const result = await createPersonalTask({
                 title: newTaskData.title,
-                // [FIX] Force Noon Local Time to prevent Midnight Drift
-                due_date: new Date(`${newTaskData.due_date}T12:00:00`).toISOString(),
+                // [FIX] Send raw YYYY-MM-DD string (no timezone conversion)
+                due_date: newTaskData.due_date,
                 type: newTaskData.type,
                 course_id: newTaskData.type === 'course_work' ? newTaskData.course_id : undefined,
                 description: newTaskData.description
             });
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Calendar.tsx:handleCreateTask',message:'createPersonalTask result',data:{hypothesisId:'H1,H2',success:result.success,error:result.error},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
 
             if (result.success && result.task) {
                 // [CRITICAL] Use REAL database object (not temp ID)
@@ -1089,6 +1148,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
                             onClick={() => setIsAddModalOpen(false)}
                             className="absolute inset-0 bg-black/60 backdrop-blur-md"
                         />
@@ -1104,13 +1164,13 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                             {/* Dynamic Glow Shadow */}
                             <div
                                 className="absolute inset-0 blur-3xl opacity-20 transition-colors duration-700"
-                                style={{ backgroundColor: newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af" }}
+                                style={{ backgroundColor: getSelectedCourseColor() }}
                             />
 
                             <div
                                 className="relative backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/5 transition-colors duration-500"
                                 style={{
-                                    background: `linear-gradient(135deg, rgba(9, 9, 11, 0.45) 0%, ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}15 100%)`
+                                    background: `linear-gradient(135deg, rgba(9, 9, 11, 0.45) 0%, ${getSelectedCourseColor()}15 100%)`
                                 }}
                             >
                                 {/* Ambient Background Effects */}
@@ -1129,8 +1189,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                         <div
                                             className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 shadow-inner"
                                             style={{
-                                                backgroundColor: `${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}20`,
-                                                color: newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"
+                                                backgroundColor: `${getSelectedCourseColor()}20`,
+                                                color: getSelectedCourseColor()
                                             }}
                                         >
                                             <CalendarIcon className="w-5 h-5" strokeWidth={2.5} />
@@ -1187,9 +1247,13 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                     className={cn(
                                                         "flex-1 text-xs py-2.5 rounded-lg font-bold transition-all",
                                                         newTaskData.type === 'course_work'
-                                                            ? "bg-blue-500/20 text-blue-400 shadow-sm"
+                                                            ? `shadow-sm ${newTaskData.course_id ? '' : 'bg-blue-500/20 text-blue-400'}`
                                                             : "text-gray-500 hover:text-white hover:bg-white/5"
                                                     )}
+                                                    style={newTaskData.type === 'course_work' && newTaskData.course_id ? {
+                                                        backgroundColor: `${getSelectedCourseColor()}20`,
+                                                        color: getSelectedCourseColor()
+                                                    } : {}}
                                                 >
                                                     Course Work
                                                 </button>
@@ -1201,18 +1265,33 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
                                                     Select Course
                                                 </label>
-                                                <select
-                                                    value={newTaskData.course_id}
-                                                    onChange={(e) => setNewTaskData({ ...newTaskData, course_id: e.target.value })}
-                                                    className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-white focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium appearance-none cursor-pointer"
-                                                >
-                                                    <option value="" className="bg-zinc-900 text-gray-500">Select...</option>
-                                                    {courses.map((c: any) => (
-                                                        <option key={c.id} value={c.id} className="bg-zinc-900 text-white">
-                                                            {c.course_code}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <div className="relative">
+                                                    {/* Color indicator dot */}
+                                                    {newTaskData.course_id && (
+                                                        <div 
+                                                            className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-colors duration-300 z-10"
+                                                            style={{ backgroundColor: getSelectedCourseColor() }}
+                                                        />
+                                                    )}
+                                                    <select
+                                                        value={newTaskData.course_id}
+                                                        onChange={(e) => setNewTaskData({ ...newTaskData, course_id: e.target.value })}
+                                                        className={cn(
+                                                            "w-full bg-white/5 border rounded-xl py-3 text-white focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium appearance-none cursor-pointer",
+                                                            newTaskData.course_id ? "pl-8 pr-4 border-white/10" : "px-4 border-white/5"
+                                                        )}
+                                                        style={newTaskData.course_id ? {
+                                                            borderColor: `${getSelectedCourseColor()}40`
+                                                        } : {}}
+                                                    >
+                                                        <option value="" className="bg-zinc-900 text-gray-500">Select a course...</option>
+                                                        {courses.map((c: any) => (
+                                                            <option key={c.id} value={c.id} className="bg-zinc-900 text-white">
+                                                                {c.course_code} - {c.course_name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -1241,11 +1320,11 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                             disabled={isCreatingTask.current}
                                             className="group relative w-full overflow-hidden rounded-xl py-4 transition-all active:scale-[0.98] shadow-lg hover:brightness-110"
                                             style={{
-                                                background: `linear-gradient(to bottom, ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}cc, ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}99)`,
+                                                background: `linear-gradient(to bottom, ${getSelectedCourseColor()}cc, ${getSelectedCourseColor()}99)`,
                                                 borderColor: 'rgba(255,255,255,0.1)',
                                                 boxShadow: `
                                                     inset 0 1px 0 0 rgba(255,255,255,0.2), 
-                                                    0 4px 20px -2px ${newTaskData.type === 'course_work' ? (getCourseColor(courses.find(c => c.id === newTaskData.course_id)?.course_code || "") || "#3b82f6") : "#9ca3af"}40,
+                                                    0 4px 20px -2px ${getSelectedCourseColor()}40,
                                                     0 0 0 1px rgba(0,0,0,0.2)
                                                 `
                                             }}
@@ -1273,159 +1352,232 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 )}
             </AnimatePresence>
 
-            {/* EDIT EVENT DIALOG (Glass UI Redesign) */}
-            <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
-                <DialogContent className="bg-neutral-900/85 backdrop-blur-xl border border-white/10 shadow-2xl text-white z-[200] sm:max-w-lg overflow-hidden p-0 animate-in fade-in zoom-in-95 duration-200">
-                    {rescheduleItem && (() => {
-                        const itemColor = rescheduleItem.courseColor || getCourseColor(rescheduleItem.courseCode);
-                        const isAssessment = !rescheduleItem.type?.includes('interview') && !rescheduleItem.type?.includes('oa') && !rescheduleItem.uniqueId?.startsWith('personal-');
-                        const gradeValue = parseFloat(rescheduleScore) || 0;
-                        const gradeColor = gradeValue >= 80 ? 'text-emerald-400' : gradeValue >= 60 ? 'text-yellow-400' : gradeValue > 0 ? 'text-red-400' : 'text-gray-400';
+            {/* EDIT EVENT DIALOG (Premium Glass UI) */}
+            <AnimatePresence>
+                {isRescheduleOpen && rescheduleItem && (
+                    <div className="fixed inset-0 flex items-center justify-center z-[200] px-4">
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            onClick={() => setIsRescheduleOpen(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                        />
 
-                        return (
-                            <>
-                                {/* Gradient Header with Course Color */}
-                                <div
-                                    className="relative h-24 px-6 pt-6 pb-4 overflow-hidden"
-                                    style={{
-                                        background: `linear-gradient(135deg, ${itemColor}20 0%, ${itemColor}05 100%)`
-                                    }}
-                                >
-                                    {/* Ambient glow */}
-                                    <div
-                                        className="absolute inset-0 opacity-20 blur-2xl"
-                                        style={{ backgroundColor: itemColor }}
-                                    />
+                        {/* Modal Container */}
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            className="w-full max-w-lg relative overflow-hidden"
+                        >
+                            {(() => {
+                                const itemColor = rescheduleItem.courseColor || getCourseColor(rescheduleItem.courseCode);
+                                const isAssessment = !rescheduleItem.type?.includes('interview') && !rescheduleItem.type?.includes('oa') && !rescheduleItem.uniqueId?.startsWith('personal-');
+                                const gradeValue = parseFloat(rescheduleScore) || 0;
+                                const gradeColor = gradeValue >= 80 ? 'text-emerald-400' : gradeValue >= 60 ? 'text-yellow-400' : gradeValue > 0 ? 'text-red-400' : 'text-gray-400';
 
-                                    <div className="relative z-10">
-                                        <DialogHeader className="space-y-0 p-0">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div
-                                                    className="w-1 h-6 rounded-full"
-                                                    style={{ backgroundColor: itemColor }}
-                                                />
-                                                <DialogTitle className="font-heading text-2xl font-bold tracking-tight text-white">
-                                                    Edit Event
-                                                </DialogTitle>
-                                            </div>
-                                            <p className="text-sm text-white/60 font-medium pl-3">
-                                                {rescheduleItem.courseCode} · {rescheduleItem.name}
-                                            </p>
-                                        </DialogHeader>
-                                    </div>
-                                </div>
+                                return (
+                                    <>
+                                        {/* Dynamic Glow Shadow */}
+                                        <div
+                                            className="absolute inset-0 blur-3xl opacity-20 transition-colors duration-700"
+                                            style={{ backgroundColor: itemColor }}
+                                        />
 
-                                <div className="px-6 py-6 space-y-6">
-                                    {/* Date Input */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Due Date & Time</label>
-                                        <div className="relative group">
-                                            <Input
-                                                ref={rescheduleDateRef}
-                                                type="datetime-local"
-                                                value={rescheduleDate}
-                                                onChange={(e) => setRescheduleDate(e.target.value)}
-                                                className="bg-white/5 backdrop-blur-sm border-white/10 hover:border-white/20 focus:border-white/30 text-white h-12 text-base transition-all duration-200 [&::-webkit-calendar-picker-indicator]:hidden"
-                                            />
-                                            {/* Custom Calendar Overlay */}
-                                            <div
-                                                className="absolute right-0 top-0 h-full w-12 flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-r-md transition-colors"
-                                                onClick={() => (rescheduleDateRef.current as any)?.showPicker?.()}
-                                            >
-                                                <CalendarIcon className="w-5 h-5 text-white/60" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Grade Input - HERO SECTION (only for assessments) */}
-                                    {isAssessment && (
-                                        <div className="space-y-3 pt-4 border-t border-white/5">
-                                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Grade Achieved</label>
-
-                                            {/* Hero Grade Display */}
-                                            <div className="relative">
-                                                <div
-                                                    className="relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-xl p-6 overflow-hidden group hover:border-white/20 transition-all duration-300"
+                                        <div
+                                            className="relative backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/5"
+                                            style={{
+                                                background: `linear-gradient(135deg, rgba(9, 9, 11, 0.45) 0%, ${itemColor}15 100%)`
+                                            }}
+                                        >
+                                            {/* Ambient Background Effects */}
+                                            <div className="absolute inset-0 z-0 pointer-events-none">
+                                                <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
                                                     style={{
-                                                        boxShadow: gradeValue > 0 ? `0 0 30px ${itemColor}15` : 'none'
+                                                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
                                                     }}
-                                                >
-                                                    {/* Ambient glow for high grades */}
-                                                    {gradeValue >= 80 && (
-                                                        <div
-                                                            className="absolute inset-0 opacity-10 blur-3xl"
-                                                            style={{ backgroundColor: itemColor }}
-                                                        />
-                                                    )}
+                                                />
+                                                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_70%,transparent_100%)]" />
+                                            </div>
 
-                                                    <div className="relative flex items-baseline justify-center gap-2">
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="100"
-                                                            step="0.1"
-                                                            value={rescheduleScore}
-                                                            onChange={(e) => setRescheduleScore(e.target.value)}
-                                                            placeholder="--"
-                                                            className={cn(
-                                                                "font-heading text-6xl font-black text-center bg-transparent border-none outline-none w-full transition-colors duration-300",
-                                                                gradeColor,
-                                                                "placeholder:text-white/10"
-                                                            )}
-                                                            style={{
-                                                                textShadow: gradeValue >= 80 ? `0 0 20px ${itemColor}40` : 'none'
-                                                            }}
-                                                        />
-                                                        <span className={cn("font-heading text-3xl font-bold", gradeColor, "opacity-60")}>%</span>
+                                            {/* Header */}
+                                            <div className="border-b border-white/5 px-6 py-5 flex items-center justify-between bg-white/[0.02] relative z-10">
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 shadow-inner"
+                                                        style={{
+                                                            backgroundColor: `${itemColor}20`,
+                                                            color: itemColor
+                                                        }}
+                                                    >
+                                                        <Pencil className="w-5 h-5" strokeWidth={2.5} />
                                                     </div>
+                                                    <div>
+                                                        <h2 className="text-xl font-bold text-white tracking-tight">Edit Event</h2>
+                                                        <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">
+                                                            {rescheduleItem.courseCode}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => setIsRescheduleOpen(false)}
+                                                    className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-500 hover:text-white"
+                                                >
+                                                    <X className="w-5 h-5" />
+                                                </button>
+                                            </div>
 
-                                                    {/* Grade Status Indicator */}
-                                                    {gradeValue > 0 && (
-                                                        <div className="mt-4 text-center">
-                                                            <div className={cn("inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm",
-                                                                gradeValue >= 80 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
-                                                                    gradeValue >= 60 ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30" :
-                                                                        "bg-red-500/20 text-red-300 border border-red-500/30"
-                                                            )}>
-                                                                {gradeValue >= 80 ? "🎉 Excellent" : gradeValue >= 60 ? "⚠️ Passing" : "❌ Needs Improvement"}
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                            {/* Form Content */}
+                                            <div className="p-6 space-y-5 relative z-10">
+                                                
+                                                {/* Event Name (Editable Input) */}
+                                                <div className="group">
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                                        Event Name
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={rescheduleName}
+                                                        onChange={(e) => setRescheduleName(e.target.value)}
+                                                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner"
+                                                        placeholder="Enter event name"
+                                                    />
                                                 </div>
 
-                                                {/* Hint Text */}
-                                                <p className="text-xs text-white/30 mt-2 text-center">
-                                                    {gradeValue === 0 ? "Enter your grade (0-100)" : `Weighted: ${(gradeValue * (rescheduleItem.weight || 0) / 100).toFixed(1)}%`}
-                                                </p>
+                                                {/* Date/Time Input */}
+                                                <div className="group">
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                                        {rescheduleItem.type === 'interview' || rescheduleItem.type === 'oa' ? 'Date & Time' : 'Due Date'}
+                                                    </label>
+                                                    <div className="relative">
+                                                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-white pointer-events-none transition-colors" />
+                                                        <input
+                                                            ref={rescheduleDateRef}
+                                                            type="datetime-local"
+                                                            value={rescheduleDate}
+                                                            onChange={(e) => setRescheduleDate(e.target.value)}
+                                                            className="w-full bg-white/5 border border-white/5 rounded-xl pl-10 pr-4 py-3.5 text-white focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Grade Input (Only for Assessments) - COMPACT VERSION */}
+                                                {isAssessment && (
+                                                    <div className="space-y-2.5 pt-2">
+                                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                                            Grade Achieved (Optional)
+                                                        </label>
+
+                                                        {/* Compact Grade Card */}
+                                                        <div
+                                                            className="relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border rounded-xl p-5 overflow-hidden transition-all duration-300"
+                                                            style={{
+                                                                borderColor: gradeValue > 0 ? `${itemColor}40` : 'rgba(255,255,255,0.05)',
+                                                                boxShadow: gradeValue >= 80 ? `0 0 30px ${itemColor}18, inset 0 1px 0 rgba(255,255,255,0.08)` : 'inset 0 1px 0 rgba(255,255,255,0.05)'
+                                                            }}
+                                                        >
+                                                            {/* Ambient glow for high grades */}
+                                                            {gradeValue >= 80 && (
+                                                                <div
+                                                                    className="absolute inset-0 opacity-8 blur-3xl animate-pulse"
+                                                                    style={{ backgroundColor: itemColor }}
+                                                                />
+                                                            )}
+
+                                                            {/* Grade Input */}
+                                                            <div className="relative flex items-baseline justify-center gap-1.5">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="0.1"
+                                                                    value={rescheduleScore}
+                                                                    onChange={(e) => setRescheduleScore(e.target.value)}
+                                                                    placeholder="--"
+                                                                    className={cn(
+                                                                        "text-5xl font-black text-center bg-transparent border-none outline-none w-full transition-all duration-300",
+                                                                        gradeColor,
+                                                                        "placeholder:text-white/10",
+                                                                        "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                    )}
+                                                                    style={{
+                                                                        textShadow: gradeValue >= 80 ? `0 0 18px ${itemColor}50` : 'none'
+                                                                    }}
+                                                                />
+                                                                <span className={cn("text-2xl font-bold opacity-60 transition-colors", gradeColor)}>%</span>
+                                                            </div>
+
+                                                            {/* Grade Status Badge & Weighted Score (Condensed) */}
+                                                            {gradeValue > 0 && (
+                                                                <div className="mt-3 flex flex-col items-center gap-1.5">
+                                                                    <div className={cn(
+                                                                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm border transition-all",
+                                                                        gradeValue >= 80 ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30" :
+                                                                        gradeValue >= 60 ? "bg-yellow-500/10 text-yellow-300 border-yellow-500/30" :
+                                                                        "bg-red-500/10 text-red-300 border-red-500/30"
+                                                                    )}>
+                                                                        <span className="text-xs">{gradeValue >= 80 ? "🎉" : gradeValue >= 60 ? "⚠️" : "❌"}</span>
+                                                                        {gradeValue >= 80 ? "Excellent" : gradeValue >= 60 ? "Passing" : "Needs Improvement"}
+                                                                    </div>
+
+                                                                    {/* Weighted Score Display */}
+                                                                    {rescheduleItem.weight && (
+                                                                        <p className="text-xs text-white/35">
+                                                                            Weighted: <span className={cn("font-bold", gradeColor)}>
+                                                                                {(gradeValue * rescheduleItem.weight / 100).toFixed(1)}%
+                                                                            </span>
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Help Text */}
+                                                        {gradeValue === 0 && (
+                                                            <p className="text-xs text-gray-500 text-center">
+                                                                Enter your grade (0-100)
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Action Buttons */}
+                                                <div className="flex gap-3 pt-4">
+                                                    <button
+                                                        onClick={() => setIsRescheduleOpen(false)}
+                                                        className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white font-bold py-3.5 rounded-xl transition-all"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        onClick={handleConfirmReschedule}
+                                                        className="flex-1 group relative overflow-hidden rounded-xl py-3.5 transition-all active:scale-[0.98] shadow-lg hover:brightness-110"
+                                                        style={{
+                                                            background: `linear-gradient(to bottom, ${itemColor}cc, ${itemColor}99)`,
+                                                            borderColor: 'rgba(255,255,255,0.1)',
+                                                            boxShadow: `
+                                                                inset 0 1px 0 0 rgba(255,255,255,0.2), 
+                                                                0 4px 20px -2px ${itemColor}40,
+                                                                0 0 0 1px rgba(0,0,0,0.2)
+                                                            `
+                                                        }}
+                                                    >
+                                                        <span className="text-white font-bold tracking-wide">Save Changes</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Footer with Glass Buttons */}
-                                <DialogFooter className="px-6 py-4 bg-white/5 backdrop-blur-sm border-t border-white/10 gap-3">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setIsRescheduleOpen(false)}
-                                        className="border-white/20 bg-white/5 backdrop-blur-sm hover:bg-white/10 text-white/70 hover:text-white font-medium transition-all duration-200"
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        onClick={handleConfirmReschedule}
-                                        className="font-heading font-bold text-black hover:shadow-lg transition-all duration-200"
-                                        style={{
-                                            background: `linear-gradient(135deg, ${itemColor} 0%, ${itemColor}dd 100%)`,
-                                        }}
-                                    >
-                                        Save Changes
-                                    </Button>
-                                </DialogFooter>
-                            </>
-                        );
-                    })()}
-                </DialogContent>
-            </Dialog>
+                                    </>
+                                );
+                            })()}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

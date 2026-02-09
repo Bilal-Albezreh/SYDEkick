@@ -90,15 +90,21 @@ export async function addInterview(formData: FormData) {
   
   const company = formData.get("company") as string;
   const role = formData.get("role") as string;
-  const date = formData.get("date") as string;
+  const dateInput = formData.get("date") as string; // e.g., "2026-02-13T19:30" (local time)
   const type = formData.get("type") as string; // 'interview' or 'oa'
+
+  // datetime-local gives us "YYYY-MM-DDTHH:MM" in local time
+  // Append ":00" for seconds if not present, then store as-is
+  const dateWithSeconds = dateInput.includes(':') && dateInput.split(':').length === 2 
+    ? `${dateInput}:00` 
+    : dateInput;
 
   // Insert into Interviews Table (Calendar Data)
   await supabase.from("interviews").insert({
     user_id: user.id,
     company_name: company,
     role_title: role,
-    interview_date: date,
+    interview_date: dateWithSeconds, // Store the local datetime string directly
     status: type === 'oa' ? "Pending" : "Interview", // OAs start as pending until done
     type: type
   });
@@ -160,6 +166,7 @@ export async function resetStat(category: string) {
     'rejected': 'rejected_count',
     'ghosted': 'ghosted_count',
     'interview': 'interview_count',
+    'oa': 'oa_count',
     'offer': 'offer_count',
     'no_offer': 'no_offer_count'
   };

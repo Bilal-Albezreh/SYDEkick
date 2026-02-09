@@ -47,3 +47,17 @@ export interface ChatMessage {
     avatar_url: string | null;
   };
 }
+
+/** Personal task (dashboard/calendar); may be linked to a course via course_id */
+export interface PersonalTask {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  is_completed: boolean;
+  course_id: string | null;
+  type: "personal" | "course_work";
+  created_at: string;
+  updated_at?: string;
+}

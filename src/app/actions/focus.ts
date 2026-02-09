@@ -234,7 +234,7 @@ export async function completeAssessment(assessmentId: string) {
 export async function updateItemDate(
   id: string,
   type: 'assessment' | 'interview' | 'personal' | 'oa' | 'course_work',
-  newDateString: string // Expecting "YYYY-MM-DD" or ISO string
+  newDateString: string // "YYYY-MM-DD" for dates, "YYYY-MM-DDTHH:MM" for datetimes
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -242,32 +242,27 @@ export async function updateItemDate(
 
   console.log(`[updateItemDate] Request: ID=${id} Type=${type} DateStr=${newDateString}`);
 
-  // 1. Safe Date Construction
-  // Interviews/OA: Respect exact timestamp (Frontend sends full UTC ISO)
-  // Tasks/Assessments: Force Noon UTC to prevent Day Drift
-  let isoDate: string;
+  // Format the date/datetime appropriately
+  let dateValue: string;
 
   if (type === 'interview' || type === 'oa') {
-    // TRUST the frontend to have converted to UTC ISO
-    isoDate = newDateString.endsWith('Z') ? newDateString : new Date(newDateString).toISOString();
+    // For interviews/OAs: expect "YYYY-MM-DDTHH:MM" and ensure seconds are appended
+    dateValue = newDateString.includes(':') && newDateString.split(':').length === 2 
+      ? `${newDateString}:00` 
+      : newDateString;
   } else {
-    try {
-      const datePart = newDateString.includes('T') ? newDateString.split('T')[0] : newDateString;
-      isoDate = `${datePart}T12:00:00Z`;
-    } catch (e) {
-      console.error("[updateItemDate] Date Parsing Error:", e);
-      throw new Error("Invalid Date Format");
-    }
+    // For assessments/tasks: just use raw "YYYY-MM-DD" string
+    dateValue = newDateString.includes('T') ? newDateString.split('T')[0] : newDateString;
   }
 
-  console.log(`[updateItemDate] Saving to DB: ${isoDate}`);
+  console.log(`[updateItemDate] Saving to DB: ${dateValue}`);
 
   let error: any;
 
   if (type === 'assessment') {
     const { error: err } = await supabase
       .from("assessments")
-      .update({ due_date: isoDate })
+      .update({ due_date: dateValue })
       .eq("id", id)
       .eq("user_id", user.id);
     error = err;
@@ -275,7 +270,7 @@ export async function updateItemDate(
   else if (type === 'interview' || type === 'oa') {
     const { error: err } = await supabase
       .from("interviews")
-      .update({ interview_date: isoDate })
+      .update({ interview_date: dateValue })
       .eq("id", id)
       .eq("user_id", user.id);
     error = err;
@@ -283,7 +278,7 @@ export async function updateItemDate(
   else if (type === 'personal' || type === 'course_work') {
     const { error: err } = await supabase
       .from("personal_tasks")
-      .update({ due_date: isoDate })
+      .update({ due_date: dateValue })
       .eq("id", id)
       .eq("user_id", user.id);
     error = err;
