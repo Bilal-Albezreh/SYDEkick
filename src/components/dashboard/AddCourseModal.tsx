@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createCourse } from "@/app/actions/courses";
-import { X, Loader2, Plus, ArrowRight } from "lucide-react";
+import { X, Loader2, Plus, ArrowRight, GraduationCap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/utils/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface Term {
+    id: string;
+    label: string;
+    is_current: boolean | null;
+}
 
 interface AddCourseModalProps {
     isOpen: boolean;
@@ -26,15 +34,56 @@ const COURSE_COLORS = [
 ];
 
 export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps) {
+    const supabase = createClient();
     const [courseCode, setCourseCode] = useState("");
     const [courseName, setCourseName] = useState("");
     const [selectedColor, setSelectedColor] = useState(COURSE_COLORS[0].hex);
+    const [credits, setCredits] = useState(0.5);
+    const [selectedTermId, setSelectedTermId] = useState("");
+    const [terms, setTerms] = useState<Term[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Fetch user's terms when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            fetchUserTerms();
+        }
+    }, [isOpen]);
+
+    const fetchUserTerms = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: termsData, error: termsError } = await supabase
+                .from("terms")
+                .select("id, label, is_current")
+                .eq("user_id", user.id)
+                .order("start_date", { ascending: false });
+
+            if (termsError) {
+                console.error("Failed to fetch terms:", termsError);
+                return;
+            }
+
+            setTerms(termsData || []);
+
+            // Auto-select current term if not already selected
+            if (!selectedTermId && termsData && termsData.length > 0) {
+                const currentTerm = termsData.find(t => t.is_current);
+                if (currentTerm) {
+                    setSelectedTermId(currentTerm.id);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch terms:", err);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!courseCode.trim() || !courseName.trim()) {
+        if (!courseCode.trim() || !courseName.trim() || !selectedTermId) {
             setError("Please fill in all fields");
             return;
         }
@@ -43,7 +92,7 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
         setError(null);
 
         try {
-            const result = await createCourse(courseCode, courseName, selectedColor);
+            const result = await createCourse(courseCode, courseName, selectedColor, credits, selectedTermId);
             if (!result.success) {
                 setError(result.error || "Failed to create course");
                 setLoading(false);
@@ -54,6 +103,8 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
             setCourseCode("");
             setCourseName("");
             setSelectedColor(COURSE_COLORS[0].hex);
+            setCredits(0.5);
+            setSelectedTermId("");
             setError(null);
             setLoading(false);
             onClose();
@@ -69,6 +120,8 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
             setCourseCode("");
             setCourseName("");
             setSelectedColor(COURSE_COLORS[0].hex);
+            setCredits(0.5);
+            setSelectedTermId("");
             setError(null);
             onClose();
         }
@@ -191,6 +244,70 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
                                                 disabled={loading}
                                             />
                                         </div>
+                                    </div>
+
+                                    {/* Term Selector */}
+                                    <div className="group">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                            Academic Term
+                                        </label>
+                                        <Select value={selectedTermId} onValueChange={setSelectedTermId} disabled={loading}>
+                                            <SelectTrigger className="w-full bg-white/5 border border-white/5 rounded-xl h-[52px] text-white focus:border-white/20 focus:bg-white/[0.07] transition-all font-medium tracking-wide shadow-inner">
+                                                <div className="flex items-center gap-2">
+                                                    <GraduationCap className="w-4 h-4 text-gray-400" />
+                                                    <SelectValue placeholder="Select term">
+                                                        {terms.find(t => t.id === selectedTermId)?.label || "Select term"}
+                                                        {terms.find(t => t.id === selectedTermId)?.is_current && (
+                                                            <span className="ml-2 text-[10px] text-cyan-400 font-bold">• CURRENT</span>
+                                                        )}
+                                                    </SelectValue>
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-zinc-900 border-white/10">
+                                                {terms.map((term) => (
+                                                    <SelectItem
+                                                        key={term.id}
+                                                        value={term.id}
+                                                        className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+                                                    >
+                                                        <div className="flex items-center justify-between w-full">
+                                                            <span>{term.label}</span>
+                                                            {term.is_current && (
+                                                                <span className="ml-3 text-[10px] text-cyan-400 font-bold">CURRENT</span>
+                                                            )}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-gray-500 mt-1.5">
+                                            {selectedTermId ? `Selected: ${terms.find(t => t.id === selectedTermId)?.label}` : "Auto-defaults to your current term"}
+                                        </p>
+                                    </div>
+
+                                    {/* Credits */}
+                                    <div className="group">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                            Credits (for GPA)
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                value={credits}
+                                                onChange={(e) => setCredits(parseFloat(e.target.value))}
+                                                min="0"
+                                                max="10"
+                                                step="0.25"
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                disabled={loading}
+                                            />
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                                                {credits === 0.25 ? "Lab" : credits === 0.5 ? "Standard" : credits === 1.0 ? "Full" : "Custom"}
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1.5">
+                                            Lab: 0.25 • Standard: 0.5 • Full: 1.0
+                                        </p>
                                     </div>
                                 </div>
 

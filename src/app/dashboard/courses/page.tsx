@@ -1,14 +1,16 @@
 import { createClient } from "@/utils/supabase/server";
 import CourseManagerPanel from "@/components/courses/CourseManagerPanel";
 import AddCourseButton from "@/components/dashboard/AddCourseButton";
-import { Plus } from "lucide-react";
+import EmptyCoursesState from "@/components/courses/EmptyCoursesState";
+import TermSelector from "@/components/TermSelector";
+import { getTerms } from "@/app/actions/terms";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function CoursesPage({
     searchParams,
 }: {
-    searchParams: Promise<{ course?: string }>;
+    searchParams: Promise<{ course?: string; term_id?: string }>;
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -18,12 +20,30 @@ export default async function CoursesPage({
     const params = await searchParams;
     const selectedCourseId = params.course;
 
-    // Fetch all courses
-    const { data: courses } = await supabase
+    // Fetch user's terms
+    const termsResult = await getTerms();
+    const terms = termsResult.data || [];
+
+    // Determine active term_id: URL param or fallback to current term
+    let activeTermId = params.term_id;
+    if (!activeTermId) {
+        const currentTerm = terms.find(t => t.is_current);
+        activeTermId = currentTerm?.id;
+    }
+
+    // Fetch courses filtered by term_id
+    const coursesQuery = supabase
         .from("courses")
-        .select("id, course_code, course_name, color")
+        .select("id, course_code, course_name, color, credits, term_id")
         .eq("user_id", user.id)
         .order("course_code", { ascending: true });
+
+    // Only filter by term if we have a valid term_id
+    if (activeTermId) {
+        coursesQuery.eq("term_id", activeTermId);
+    }
+
+    const { data: courses } = await coursesQuery;
 
     return (
         <div className="space-y-6">
@@ -35,46 +55,17 @@ export default async function CoursesPage({
                         Edit course details, customize colors, and manage your curriculum.
                     </p>
                 </div>
-                <AddCourseButton buttonText="Add Course" />
+                <div className="flex items-center gap-3">
+                    {terms.length > 0 && activeTermId && (
+                        <TermSelector terms={terms} currentTermId={activeTermId} />
+                    )}
+                    <AddCourseButton buttonText="Add Course" />
+                </div>
             </div>
 
             {/* Empty State - No Courses */}
             {courses && courses.length === 0 ? (
-                <div className="h-[700px] flex items-center justify-center bg-black/30 backdrop-blur-md border border-white/10 rounded-xl">
-                    <div className="text-center px-8 max-w-md">
-                        <div className="mb-6">
-                            <div className="w-20 h-20 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                <svg
-                                    className="w-10 h-10 text-cyan-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                                    />
-                                </svg>
-                            </div>
-                            <h2 className="text-2xl font-bold text-white mb-2">Your term is ready</h2>
-                            <p className="text-gray-400">
-                                Add your first course to get started with grade tracking, scheduling, and more.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => {
-                                const addButton = document.querySelector('[class*="from-cyan-600"]') as HTMLButtonElement;
-                                addButton?.click();
-                            }}
-                            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-500/25 animate-pulse"
-                        >
-                            <Plus className="w-5 h-5" />
-                            Add Your First Course
-                        </button>
-                    </div>
-                </div>
+                <EmptyCoursesState />
             ) : (
                 /* Content Area - Two Column Layout */
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[700px]">

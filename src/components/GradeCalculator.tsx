@@ -3,13 +3,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { updateAssessmentScore } from "@/app/actions/index";
-import { Loader2, TrendingUp, RotateCcw, BarChart3, Calculator, LayoutGrid, Plus } from "lucide-react";
+import { Loader2, TrendingUp, RotateCcw, BarChart3, Calculator, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts";
-import AddCourseModal from "@/components/dashboard/AddCourseModal";
 
 // --- RULES ENGINE CONFIGURATION ---
 const COURSE_RULES: Record<string, any[]> = {
@@ -47,7 +46,6 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
   const [isHypothetical, setIsHypothetical] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showChart, setShowChart] = useState(false);
-  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -305,13 +303,6 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
             <button onClick={() => setViewMode("overview")} className={cn("w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all border-l-4", viewMode === "overview" ? "border-cyan-500 bg-gradient-to-r from-cyan-500/10 to-transparent text-cyan-400 font-bold" : "border-transparent text-gray-400 hover:bg-white/5")}>
               <BarChart3 className="w-4 h-4" /><span>Term Overview</span>
             </button>
-            <button
-              onClick={() => setIsAddCourseModalOpen(true)}
-              className="w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all border-l-4 border-transparent text-gray-400 hover:bg-cyan-500/10 hover:text-cyan-400 hover:border-cyan-500"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Course</span>
-            </button>
             <div className="h-px bg-gray-800 my-2 mx-2" />
             {courses.map((course) => {
               const stats = getCourseStats(course);
@@ -490,11 +481,6 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
           )}
         </div>
       </div>
-
-      <AddCourseModal
-        isOpen={isAddCourseModalOpen}
-        onClose={() => setIsAddCourseModalOpen(false)}
-      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
+import { ACADEMIC_TERMS } from "@/lib/constants";
 
 interface University {
     id: string;
@@ -23,20 +24,6 @@ interface AcademicSettingsCardProps {
     initialProgramId: string | null;
     initialTermLabel: string | null;
 }
-
-// Hardcoded SYDE terms - same as SetupWizard
-const TERM_OPTIONS = [
-    { id: "1A", label: "1A" },
-    { id: "1B", label: "1B" },
-    { id: "2A", label: "2A" },
-    { id: "2B", label: "2B" },
-    { id: "3A", label: "3A" },
-    { id: "3B", label: "3B" },
-    { id: "4A", label: "4A" },
-    { id: "4B", label: "4B" },
-    { id: "5A", label: "5A" },
-    { id: "5B", label: "5B" },
-];
 
 export default function AcademicSettingsCard({
     initialUniversityId,
@@ -191,24 +178,18 @@ export default function AcademicSettingsCard({
                 {/* Current Term Selector */}
                 <div className="grid gap-2">
                     <label className="text-xs font-bold text-gray-500 uppercase">Current Term</label>
-                    <div className="grid grid-cols-5 gap-2">
-                        {TERM_OPTIONS.map((term) => (
-                            <button
-                                key={term.id}
-                                type="button"
-                                onClick={() => setSelectedTerm(term.id)}
-                                className={`
-                  p-3 rounded-lg border-2 transition-all text-sm font-bold
-                  ${selectedTerm === term.id
-                                        ? "bg-cyan-500/20 border-cyan-500 text-white"
-                                        : "bg-black/30 border-white/10 text-gray-400 hover:border-white/20"
-                                    }
-                `}
-                            >
-                                {term.label}
-                            </button>
+                    <select
+                        value={selectedTerm}
+                        onChange={(e) => setSelectedTerm(e.target.value)}
+                        className="bg-black/50 border border-white/10 text-gray-200 h-11 rounded-md px-3 focus:border-cyan-500/50 focus:outline-none"
+                    >
+                        <option value="">Select Term</option>
+                        {ACADEMIC_TERMS.map((term) => (
+                            <option key={term} value={term}>
+                                {term}
+                            </option>
                         ))}
-                    </div>
+                    </select>
                     <p className="text-[10px] text-gray-600">Your current academic term</p>
                 </div>
 

@@ -4,10 +4,18 @@ import { useEffect, useState } from "react";
 import { getCourseWithAssessments, updateCourseDetails, updateCourseAssessments, deleteCourse } from "@/app/actions/courses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Save, Plus, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/utils/supabase/client";
+
+interface Term {
+    id: string;
+    label: string;
+    is_current: boolean | null;
+}
 
 interface Assessment {
     id?: string;
@@ -37,6 +45,7 @@ const COLOR_OPTIONS = [
 
 export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps) {
     const router = useRouter();
+    const supabase = createClient();
     const [activeTab, setActiveTab] = useState<"content" | "settings">("content");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -46,14 +55,43 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
     const [courseCode, setCourseCode] = useState("");
     const [courseName, setCourseName] = useState("");
     const [courseColor, setCourseColor] = useState(COLOR_OPTIONS[0]);
+    const [courseCredits, setCourseCredits] = useState(0.5);
+    const [courseTerm, setCourseTerm] = useState("");
+    const [courseTermId, setCourseTermId] = useState("");
     const [assessments, setAssessments] = useState<Assessment[]>([]);
+    
+    // Terms data
+    const [terms, setTerms] = useState<Term[]>([]);
 
-    // Load course data
+    // Load course data and terms
     useEffect(() => {
         if (courseId) {
             loadCourseData();
+            fetchTerms();
         }
     }, [courseId]);
+
+    const fetchTerms = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: termsData, error } = await supabase
+                .from("terms")
+                .select("id, label, is_current")
+                .eq("user_id", user.id)
+                .order("start_date", { ascending: false });
+
+            if (error) {
+                console.error("Failed to fetch terms:", error);
+                return;
+            }
+
+            setTerms(termsData || []);
+        } catch (err) {
+            console.error("Failed to fetch terms:", err);
+        }
+    };
 
     const loadCourseData = async () => {
         setLoading(true);
@@ -68,6 +106,9 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
         setCourseCode(course.course_code);
         setCourseName(course.course_name);
         setCourseColor(course.color);
+        setCourseCredits(course.credits || 0.5);
+        setCourseTerm(course.term || "");
+        setCourseTermId(course.term_id || "");
         setAssessments(course.assessments || []);
         setIsDirty(false);
         setLoading(false);
@@ -142,6 +183,8 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
                 course_code: courseCode.trim(),
                 course_name: courseName.trim(),
                 color: courseColor,
+                credits: courseCredits,
+                term_id: courseTermId,
             });
 
             if (!result.success) {
@@ -201,8 +244,23 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
                     className="w-2 h-16 rounded-full mb-3 shadow-lg shadow-current/50"
                     style={{ backgroundColor: courseColor }}
                 />
-                <h2 className="text-2xl font-bold text-white">{courseCode}</h2>
-                <p className="text-gray-400 text-sm">{courseName}</p>
+                <div className="flex items-baseline justify-between">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h2 className="text-2xl font-bold text-white">{courseCode}</h2>
+                            {courseTerm && (
+                                <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs font-bold rounded-md border border-cyan-500/30">
+                                    {courseTerm}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-gray-400 text-sm">{courseName}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">Credits</p>
+                        <p className="text-lg font-bold text-white">{courseCredits.toFixed(2)}</p>
+                    </div>
+                </div>
             </div>
 
             {/* Tab Bar */}
@@ -381,6 +439,64 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
                                         placeholder="e.g., Intro to CS"
                                         className="bg-black/50 border-white/10 text-gray-200 h-11 focus:border-cyan-500/50"
                                     />
+                                </div>
+                            </div>
+
+                            {/* Credits and Term - Side by Side */}
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Credits */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
+                                        Credits (for GPA)
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        value={courseCredits}
+                                        onChange={(e) => handleFieldChange(setCourseCredits, parseFloat(e.target.value))}
+                                        min="0"
+                                        max="10"
+                                        step="0.25"
+                                        className="bg-black/50 border-white/10 text-gray-200 h-11 focus:border-cyan-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        {courseCredits === 0.25 ? "Lab Course" : courseCredits === 0.5 ? "Standard" : courseCredits === 1.0 ? "Full Credit" : "Custom"}
+                                    </p>
+                                </div>
+
+                                {/* Term */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
+                                        Academic Term
+                                    </label>
+                                    <Select 
+                                        value={courseTermId} 
+                                        onValueChange={(value) => handleFieldChange(setCourseTermId, value)}
+                                    >
+                                        <SelectTrigger className="bg-black/50 border-white/10 text-gray-200 h-11 focus:border-cyan-500/50">
+                                            <SelectValue placeholder="Select term">
+                                                {terms.find(t => t.id === courseTermId)?.label || "Select term"}
+                                            </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-black/50 border-white/10 backdrop-blur-xl">
+                                            {terms.map((term) => (
+                                                <SelectItem
+                                                    key={term.id}
+                                                    value={term.id}
+                                                    className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+                                                >
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <span>{term.label}</span>
+                                                        {term.is_current && (
+                                                            <span className="ml-2 text-[10px] text-cyan-400 font-bold">CURRENT</span>
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Move course to different term
+                                    </p>
                                 </div>
                             </div>
 

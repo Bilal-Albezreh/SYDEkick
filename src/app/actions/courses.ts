@@ -90,7 +90,7 @@ export async function getCourseWithAssessments(courseId: string) {
     const { data: course, error } = await supabase
         .from("courses")
         .select(`
-            id, course_code, course_name, color,
+            id, course_code, course_name, color, credits, term, term_id,
             assessments (id, name, weight, score, total_marks, due_date)
         `)
         .eq("id", courseId)
@@ -115,6 +115,8 @@ export async function updateCourseDetails(
         course_code: string;
         course_name: string;
         color: string;
+        credits?: number;
+        term_id?: string;
     }
 ) {
     const supabase = await createClient();
@@ -136,14 +138,35 @@ export async function updateCourseDetails(
         return { success: false, error: "Unauthorized" };
     }
 
+    // Build update object
+    const updateData: any = {
+        course_code: courseData.course_code,
+        course_name: courseData.course_name,
+        color: courseData.color,
+    };
+
+    if (courseData.credits !== undefined) {
+        updateData.credits = courseData.credits;
+    }
+
+    // If term_id is provided, fetch term label and update both
+    if (courseData.term_id) {
+        const { data: termData, error: termError } = await supabase
+            .from("terms")
+            .select("label")
+            .eq("id", courseData.term_id)
+            .single();
+
+        if (!termError && termData) {
+            updateData.term_id = courseData.term_id;
+            updateData.term = termData.label;
+        }
+    }
+
     // Update course
     const { error: updateError } = await supabase
         .from("courses")
-        .update({
-            course_code: courseData.course_code,
-            course_name: courseData.course_name,
-            color: courseData.color,
-        })
+        .update(updateData)
         .eq("id", courseId)
         .eq("user_id", user.id);
 
@@ -278,17 +301,21 @@ export async function updateCourseAssessments(
 
 
 /**
- * Create a new course for the current user's active term
+ * Create a new course for a specific term
  * 
  * @param code - Course code (e.g., "SYDE 101")
  * @param name - Course name (e.g., "Introduction to Systems Design")
  * @param color - Hex color code (e.g., "#3b82f6")
+ * @param credits - Course credit weight (e.g., 0.5 for standard, 0.25 for lab)
+ * @param termId - Term ID (UUID from terms table)
  * @returns Success status and optional error message
  */
 export async function createCourse(
     code: string,
     name: string,
-    color: string
+    color: string,
+    credits: number = 0.5,
+    termId: string
 ) {
     try {
         // ==========================================
@@ -302,22 +329,18 @@ export async function createCourse(
         }
 
         // ==========================================
-        // STEP 2: FIND CURRENT TERM
+        // STEP 2: VERIFY TERM OWNERSHIP
         // ==========================================
-        const { data: currentTerm, error: termError } = await supabase
+        const { data: term, error: termError } = await supabase
             .from("terms")
-            .select("id")
+            .select("id, label")
+            .eq("id", termId)
             .eq("user_id", user.id)
-            .eq("is_current", true)
             .maybeSingle();
 
-        if (termError) {
-            console.error("❌ Error fetching current term:", termError);
-            return { success: false, error: "Failed to find active term" };
-        }
-
-        if (!currentTerm) {
-            return { success: false, error: "No active term found. Please set up a term first." };
+        if (termError || !term) {
+            console.error("❌ Error verifying term:", termError);
+            return { success: false, error: "Invalid term selected" };
         }
 
         // ==========================================
@@ -327,10 +350,12 @@ export async function createCourse(
             .from("courses")
             .insert({
                 user_id: user.id,
-                term_id: currentTerm.id,
+                term_id: termId,
                 course_code: code.trim(),
-                course_name: name.trim(), // ✅ FIXED: Map to 'course_name' column
-                color: color
+                course_name: name.trim(),
+                color: color,
+                credits: credits,
+                term: term.label // Store label for quick reference
             })
             .select("id")
             .single();
@@ -349,6 +374,7 @@ export async function createCourse(
         // ==========================================
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/grades");
+        revalidatePath("/dashboard/courses");
 
         return {
             success: true,

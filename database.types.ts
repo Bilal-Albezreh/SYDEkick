@@ -65,6 +65,8 @@ export interface Database {
           grading_rules: Json | null;
           term_id: string | null;
           target_grade: number | null;
+          credits: number;
+          term: string | null;
         };
         Insert: {
           id?: string;
@@ -75,6 +77,8 @@ export interface Database {
           grading_rules?: Json | null;
           term_id?: string | null;
           target_grade?: number | null;
+          credits?: number;
+          term?: string | null;
         };
         Update: {
           id?: string;
@@ -85,6 +89,8 @@ export interface Database {
           grading_rules?: Json | null;
           term_id?: string | null;
           target_grade?: number | null;
+          credits?: number;
+          term?: string | null;
         };
       };
       schedule_items: {
