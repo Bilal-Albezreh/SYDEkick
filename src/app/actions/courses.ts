@@ -302,12 +302,13 @@ export async function updateCourseAssessments(
 
 /**
  * Create a new course for a specific term
+ * Uses lazy term creation - if term doesn't exist, creates it automatically
  * 
  * @param code - Course code (e.g., "SYDE 101")
  * @param name - Course name (e.g., "Introduction to Systems Design")
  * @param color - Hex color code (e.g., "#3b82f6")
  * @param credits - Course credit weight (e.g., 0.5 for standard, 0.25 for lab)
- * @param termId - Term ID (UUID from terms table)
+ * @param termLabel - Term label from ACADEMIC_TERMS (e.g., "1A", "2B")
  * @returns Success status and optional error message
  */
 export async function createCourse(
@@ -315,7 +316,7 @@ export async function createCourse(
     name: string,
     color: string,
     credits: number = 0.5,
-    termId: string
+    termLabel: string
 ) {
     try {
         // ==========================================
@@ -329,18 +330,43 @@ export async function createCourse(
         }
 
         // ==========================================
-        // STEP 2: VERIFY TERM OWNERSHIP
+        // STEP 2: LAZY TERM CREATION
+        // Check if term exists, create if it doesn't
         // ==========================================
-        const { data: term, error: termError } = await supabase
+        let termId: string;
+
+        // Check if term with this label already exists for the user
+        const { data: existingTerm } = await supabase
             .from("terms")
-            .select("id, label")
-            .eq("id", termId)
+            .select("id")
             .eq("user_id", user.id)
+            .eq("label", termLabel)
             .maybeSingle();
 
-        if (termError || !term) {
-            console.error("❌ Error verifying term:", termError);
-            return { success: false, error: "Invalid term selected" };
+        if (existingTerm) {
+            // Term exists, use its ID
+            termId = existingTerm.id;
+        } else {
+            // Term doesn't exist, create it now
+            const { data: newTerm, error: termCreateError } = await supabase
+                .from("terms")
+                .insert({
+                    user_id: user.id,
+                    label: termLabel,
+                    season: `${termLabel} Term`, // Placeholder season
+                    start_date: new Date().toISOString().split('T')[0], // Placeholder date
+                    end_date: new Date().toISOString().split('T')[0], // Placeholder date
+                    is_current: false // Default to not current
+                })
+                .select("id")
+                .single();
+
+            if (termCreateError || !newTerm) {
+                console.error("❌ Error creating term:", termCreateError);
+                return { success: false, error: "Failed to create term" };
+            }
+
+            termId = newTerm.id;
         }
 
         // ==========================================
@@ -355,7 +381,7 @@ export async function createCourse(
                 course_name: name.trim(),
                 color: color,
                 credits: credits,
-                term: term.label // Store label for quick reference
+                term: termLabel // Store label for quick reference
             })
             .select("id")
             .single();

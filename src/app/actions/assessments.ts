@@ -2,12 +2,14 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { ASSESSMENT_TYPES } from "@/lib/constants";
 
 /**
  * Create a new assessment for a specific course
  * 
  * @param courseId - The course ID to add the assessment to
  * @param name - Assessment name (e.g., "Midterm Exam")
+ * @param type - Assessment type (Assignment, Quiz, Midterm, Final, Project, Lab, Participation)
  * @param weight - Assessment weight (e.g., 20 for 20%)
  * @param total - Total marks for this assessment (default 100)
  * @param dueDate - Due date for the assessment (optional)
@@ -16,6 +18,7 @@ import { revalidatePath } from "next/cache";
 export async function createAssessment(
     courseId: string,
     name: string,
+    type: string,
     weight: number,
     total: number = 100,
     dueDate?: string
@@ -29,6 +32,16 @@ export async function createAssessment(
 
         if (authError || !user) {
             return { success: false, error: "Not authenticated" };
+        }
+
+        // ==========================================
+        // STEP 1.5: VALIDATE TYPE
+        // ==========================================
+        if (!ASSESSMENT_TYPES.includes(type as any)) {
+            return {
+                success: false,
+                error: `Invalid assessment type. Must be one of: ${ASSESSMENT_TYPES.join(', ')}`
+            };
         }
 
         // ==========================================
@@ -59,6 +72,7 @@ export async function createAssessment(
                 user_id: user.id,
                 course_id: courseId,
                 name: name.trim(),
+                type: type,
                 weight: weight,
                 total_marks: total,
                 due_date: dueDate || null,
@@ -81,6 +95,7 @@ export async function createAssessment(
         // STEP 4: REVALIDATE PATHS
         // ==========================================
         revalidatePath("/dashboard/grades");
+        revalidatePath("/dashboard/courses");
 
         return {
             success: true,
