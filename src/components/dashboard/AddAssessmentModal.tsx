@@ -137,6 +137,12 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
         }
     };
 
+    // Dynamic options logic: Ensure selected value is always in the list
+    const currentOptions = [...ASSESSMENT_TYPES] as string[];
+    if (editData?.type && !currentOptions.includes(editData.type)) {
+        currentOptions.push(editData.type);
+    }
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -249,12 +255,17 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
                                             Type *
                                         </label>
-                                        <Select value={selectedType} onValueChange={setSelectedType} disabled={loading}>
+                                        <Select
+                                            key={editData?.id || 'new'}
+                                            value={selectedType}
+                                            onValueChange={setSelectedType}
+                                            disabled={loading}
+                                        >
                                             <SelectTrigger className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white focus:border-white/20 focus:bg-white/[0.07] h-auto cursor-pointer">
                                                 <SelectValue placeholder="Select type" />
                                             </SelectTrigger>
                                             <SelectContent className="bg-zinc-900 border-white/10 z-[200]">
-                                                {ASSESSMENT_TYPES.map((type) => (
+                                                {currentOptions.map((type) => (
                                                     <SelectItem
                                                         key={type}
                                                         value={type}
@@ -315,10 +326,10 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                                                 type="date"
                                                 value={dueDate}
                                                 onChange={(e) => setDueDate(e.target.value)}
-                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium shadow-inner cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden"
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl pl-12 pr-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium tracking-wide shadow-inner [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                                                 disabled={loading}
                                             />
-                                            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-white pointer-events-none transition-colors" />
                                         </div>
                                     </div>
                                 </div>

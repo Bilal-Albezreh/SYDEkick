@@ -91,7 +91,7 @@ export async function getCourseWithAssessments(courseId: string) {
         .from("courses")
         .select(`
             id, course_code, course_name, color, credits, term, term_id,
-            assessments (id, name, weight, score, total_marks, due_date)
+            assessments (id, name, weight, score, total_marks, due_date, type, is_completed)
         `)
         .eq("id", courseId)
         .eq("user_id", user.id)

@@ -13,6 +13,41 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      terms: {
+        Row: {
+          id: string;
+          user_id: string;
+          label: string;
+          season: string;
+          start_date: string;
+          end_date: string;
+          is_current: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          label: string;
+          season: string;
+          start_date: string;
+          end_date: string;
+          is_current?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          label?: string;
+          season?: string;
+          start_date?: string;
+          end_date?: string;
+          is_current?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      },
       personal_tasks: {
         Row: {
           id: string;
@@ -130,10 +165,91 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        assessments: {
+          Row: {
+            id: string;
+            user_id: string;
+            course_id: string;
+            name: string;
+            weight: number;
+            total_marks: number;
+            score: number | null;
+            due_date: string | null;
+            type: string | null;
+            is_completed: boolean;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            user_id?: string;
+            course_id: string;
+            name: string;
+            weight: number;
+            total_marks: number;
+            score?: number | null;
+            due_date?: string | null;
+            type?: string | null;
+            is_completed?: boolean;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            id?: string;
+            user_id?: string;
+            course_id?: string;
+            name?: string;
+            weight?: number;
+            total_marks?: number;
+            score?: number | null;
+            due_date?: string | null;
+            type?: string | null;
+            is_completed?: boolean;
+            created_at?: string;
+            updated_at?: string;
+          };
+        };
+        schedule_items: {
+          Row: {
+            id: string;
+            user_id: string;
+            course_id: string;
+            day: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+            start_time: string;
+            end_time: string;
+            location: string | null;
+            type: "LEC" | "TUT" | "LAB" | "SEM";
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            user_id: string;
+            course_id: string;
+            day: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+            start_time: string;
+            end_time: string;
+            location?: string | null;
+            type: "LEC" | "TUT" | "LAB" | "SEM";
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            id?: string;
+            user_id?: string;
+            course_id?: string;
+            day?: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+            start_time?: string;
+            end_time?: string;
+            location?: string | null;
+            type?: "LEC" | "TUT" | "LAB" | "SEM";
+            created_at?: string;
+            updated_at?: string;
+          };
+        };
       };
     };
-  };
-}
+  }
 
 export type PersonalTaskRow = Database["public"]["Tables"]["personal_tasks"]["Row"];
 export type PersonalTaskInsert = Database["public"]["Tables"]["personal_tasks"]["Insert"];

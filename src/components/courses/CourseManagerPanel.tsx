@@ -27,6 +27,8 @@ interface Assessment {
     total_marks: number;
     due_date: string | null;
     score?: number | null;
+    type?: string | null;
+    is_completed?: boolean;
 }
 
 interface CourseManagerPanelProps {
