@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import CourseManagerPanel from "@/components/courses/CourseManagerPanel";
 import AddCourseButton from "@/components/dashboard/AddCourseButton";
+import SyllabusImportButton from "@/components/dashboard/SyllabusImportButton";
 import EmptyCoursesState from "@/components/courses/EmptyCoursesState";
 import TermSelector from "@/components/TermSelector";
 import { getTerms } from "@/app/actions/terms";
@@ -59,6 +60,7 @@ export default async function CoursesPage({
                     {terms.length > 0 && activeTermId && (
                         <TermSelector terms={terms} currentTermId={activeTermId} />
                     )}
+                    <SyllabusImportButton />
                     <AddCourseButton buttonText="Add Course" />
                 </div>
             </div>
