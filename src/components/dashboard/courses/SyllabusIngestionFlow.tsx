@@ -97,9 +97,10 @@ const DropzoneView = ({ onFileDrop }: { onFileDrop: (file: File) => void }) => {
 
     return (
         <motion.div
+            layout
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center h-full w-full space-y-6"
+            className="flex flex-col flex-1 overflow-hidden items-center justify-center space-y-6"
         >
             <div
                 {...getRootProps()}
@@ -148,10 +149,11 @@ const AnalyzingView = () => {
 
     return (
         <motion.div
+            layout
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center h-full w-full"
+            className="flex flex-col flex-1 overflow-hidden items-center justify-center"
         >
             {/* Spinning Gradient Ring */}
             <div className="relative w-20 h-20 mb-8">
@@ -211,7 +213,13 @@ const ReviewView = ({
     };
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-full w-full">
+        <motion.div
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col flex-1 overflow-hidden"
+        >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/5">
                 <div className="flex items-center gap-3">
@@ -379,15 +387,15 @@ export const SyllabusIngestionFlow = ({ onConfirmExternal, onAnalysisComplete }:
                     <DropzoneView key="idle" onFileDrop={handleFileDrop} />
                 )}
                 {flowState === "ANALYZING" && <AnalyzingView key="analyzing" />}
+                {flowState === "REVIEW" && file && extractedData && (
+                    <ReviewView
+                        key="review"
+                        fileUrl={URL.createObjectURL(file)}
+                        data={extractedData}
+                        onConfirm={handleConfirm}
+                    />
+                )}
             </AnimatePresence>
-
-            {flowState === "REVIEW" && file && extractedData && (
-                <ReviewView
-                    fileUrl={URL.createObjectURL(file)}
-                    data={extractedData}
-                    onConfirm={handleConfirm}
-                />
-            )}
         </div>
     );
 };

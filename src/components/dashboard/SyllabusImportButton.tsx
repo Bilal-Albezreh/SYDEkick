@@ -59,7 +59,7 @@ export default function SyllabusImportButton() {
                         {/* 2. THE GLOWING CONTAINER */}
                         <motion.div
                             layout
-                            initial={{ opacity: 0, scale: 0.9, y: 20, width: "390px" }}
+                            initial={{ opacity: 0, scale: 0.9, y: 20, width: "340px" }}
                             animate={{
                                 opacity: 1,
                                 scale: 1,
@@ -68,7 +68,7 @@ export default function SyllabusImportButton() {
                                 height: isReviewMode ? "90vh" : "auto",
                             }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                            transition={{ layout: { duration: 0.6, type: "spring", bounce: 0.2 } }}
                             className={`
                                 relative z-10 overflow-hidden
                                 ${isReviewMode ? "rounded-[24px]" : "rounded-[40px]"}
