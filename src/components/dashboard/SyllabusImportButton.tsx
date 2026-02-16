@@ -24,19 +24,22 @@ export default function SyllabusImportButton() {
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="group relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-lg hover:shadow-indigo-500/25 overflow-hidden"
+                className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-lg hover:shadow-indigo-500/25 overflow-hidden"
             >
-                {/* APPLE INTELLIGENCE GLOW BACKGROUND */}
+                {/* APPLE INTELLIGENCE GLOW BACKGROUND (Reveals on Hover) */}
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
                     <div className="absolute inset-[-100%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#bd60f3_0%,#f5b9ea_50%,#67e7f5_100%)] blur-xl" />
                 </div>
 
-                {/* Glassy Overlay for Text Readability */}
-                <div className="absolute inset-[1px] rounded-xl bg-zinc-950/90 group-hover:bg-zinc-900/80 backdrop-blur-sm transition-colors" />
+                {/* [NEW] Default Background (Visible when NOT hovering, fades out on hover) */}
+                <div className="absolute inset-0 bg-indigo-600 group-hover:opacity-0 transition-opacity duration-500" />
+
+                {/* Glassy Overlay for Text Readability (Visible on hover) */}
+                <div className="absolute inset-[1px] rounded-xl bg-zinc-950/20 group-hover:bg-zinc-900/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                 {/* Content */}
                 <div className="relative z-10 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-indigo-400 group-hover:text-white transition-colors" />
+                    <Sparkles className="w-5 h-5 text-indigo-100 group-hover:text-white transition-colors" />
                     <span>Import Syllabus</span>
                 </div>
             </button>
@@ -56,12 +59,12 @@ export default function SyllabusImportButton() {
                         {/* 2. THE GLOWING CONTAINER */}
                         <motion.div
                             layout
-                            initial={{ opacity: 0, scale: 0.9, y: 20, width: "340px" }}
+                            initial={{ opacity: 0, scale: 0.9, y: 20, width: "390px" }}
                             animate={{
                                 opacity: 1,
                                 scale: 1,
                                 y: 0,
-                                width: isReviewMode ? "95vw" : "340px",
+                                width: isReviewMode ? "115vw" : "390px",
                                 height: isReviewMode ? "90vh" : "auto",
                             }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
