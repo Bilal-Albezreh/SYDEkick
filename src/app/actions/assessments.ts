@@ -94,8 +94,14 @@ export async function createAssessment(
         // ==========================================
         // STEP 4: REVALIDATE PATHS
         // ==========================================
-        revalidatePath("/dashboard/grades");
+        // 1. Revalidate the specific courses page (where the user actually is)
         revalidatePath("/dashboard/courses");
+
+        // 2. Revalidate the main dashboard (for the "Upcoming" widgets)
+        revalidatePath("/dashboard");
+
+        // 3. Revalidate the grades page (so the average updates instantly)
+        revalidatePath("/dashboard/grades");
 
         return {
             success: true,
@@ -147,6 +153,13 @@ export async function deleteAssessment(assessmentId: string) {
         // ==========================================
         // STEP 3: REVALIDATE PATHS
         // ==========================================
+        // 1. Revalidate the specific courses page
+        revalidatePath("/dashboard/courses");
+
+        // 2. Revalidate the main dashboard
+        revalidatePath("/dashboard");
+
+        // 3. Revalidate the grades page
         revalidatePath("/dashboard/grades");
 
         return {
@@ -172,11 +185,23 @@ export async function deleteAssessment(assessmentId: string) {
  * @param name - Optional new name
  * @returns Success status and optional error message
  */
+/**
+ * Update assessment details (date, score, name, type, weight, total_marks) - Unified Edit Modal
+ * 
+ * @param assessmentId - The assessment ID to update
+ * @param data - The data to update
+ * @returns Success status and updated data
+ */
 export async function updateAssessmentDetails(
     assessmentId: string,
-    dueDate?: string,
-    score?: number | null,
-    name?: string
+    data: {
+        name?: string;
+        type?: string;
+        weight?: number;
+        total_marks?: number;
+        due_date?: string | null;
+        score?: number | null;
+    }
 ) {
     try {
         // ==========================================
@@ -192,38 +217,43 @@ export async function updateAssessmentDetails(
         // ==========================================
         // STEP 2: BUILD UPDATE PAYLOAD
         // ==========================================
-        const updatePayload: any = {};
-
-        if (dueDate !== undefined) {
-            updatePayload.due_date = dueDate;
-        }
-
-        if (name !== undefined && name.trim() !== "") {
-            updatePayload.name = name.trim();
-        }
-
-        if (score !== undefined && score !== null) {
-            // Validate score range
-            if (score < 0 || score > 100) {
-                return { success: false, error: "Score must be between 0 and 100" };
+        // Validate score range if present
+        if (data.score !== undefined && data.score !== null) {
+            if (data.score < 0) {
+                return { success: false, error: "Score must be non-negative" };
             }
-            updatePayload.score = score;
-            updatePayload.is_completed = true; // Mark as completed when score is entered
+            if (data.total_marks !== undefined && data.score > data.total_marks) {
+                return { success: false, error: `Score must be between 0 and ${data.total_marks}` };
+            }
         }
 
-        // If nothing to update, return early
-        if (Object.keys(updatePayload).length === 0) {
-            return { success: true, message: "No changes made" };
+        const updatePayload: any = {
+            updated_at: new Date().toISOString()
+        };
+
+        if (data.name !== undefined) updatePayload.name = data.name.trim();
+        if (data.type !== undefined) updatePayload.type = data.type;
+        if (data.weight !== undefined) updatePayload.weight = data.weight;
+        if (data.total_marks !== undefined) updatePayload.total_marks = data.total_marks;
+        if (data.due_date !== undefined) updatePayload.due_date = data.due_date;
+
+        // Only update score if it is NOT undefined
+        if (data.score !== undefined) {
+            updatePayload.score = data.score;
+            // Ensure is_completed tracks with score presence
+            updatePayload.is_completed = data.score !== null;
         }
 
         // ==========================================
         // STEP 3: UPDATE ASSESSMENT
         // ==========================================
-        const { error: updateError } = await supabase
+        const { data: updatedAssessment, error: updateError } = await supabase
             .from("assessments")
             .update(updatePayload)
             .eq("id", assessmentId)
-            .eq("user_id", user.id);
+            .eq("user_id", user.id)
+            .select()
+            .single();
 
         if (updateError) {
             console.error("❌ Assessment update error:", updateError);
@@ -233,12 +263,18 @@ export async function updateAssessmentDetails(
         // ==========================================
         // STEP 4: REVALIDATE PATHS
         // ==========================================
+        // 1. Revalidate the specific courses page (where the user actually is)
+        revalidatePath("/dashboard/courses");
+
+        // 2. Revalidate the main dashboard (for the "Upcoming" widgets)
         revalidatePath("/dashboard");
+
+        // 3. Revalidate the grades page (so the average updates instantly)
         revalidatePath("/dashboard/grades");
-        revalidatePath("/dashboard/calendar");
 
         return {
             success: true,
+            data: updatedAssessment,
             message: "Assessment updated successfully"
         };
 
@@ -278,8 +314,16 @@ export async function updateAssessmentDate(assessmentId: string, newDate: string
             return { success: false, error: `Failed to update date: ${updateError.message}` };
         }
 
+        // 1. Revalidate the specific courses page
+        revalidatePath("/dashboard/courses");
+
+        // 2. Revalidate the main dashboard
         revalidatePath("/dashboard");
+
+        // 3. Revalidate the grades page
         revalidatePath("/dashboard/grades");
+
+        // 4. Revalidate calendar
         revalidatePath("/dashboard/calendar");
 
         return {

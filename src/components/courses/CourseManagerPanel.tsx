@@ -70,7 +70,7 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
 
     // Edit modal state
     const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isAssessmentModalOpen, setIsAssessmentModalOpen] = useState(false);
 
     // Load course data and terms
     useEffect(() => {
@@ -130,13 +130,24 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
 
     const handleEditAssessment = (assessment: Assessment) => {
         setEditingAssessment(assessment);
-        setIsEditModalOpen(true);
+        setIsAssessmentModalOpen(true);
     };
 
-    const handleCloseEditModal = () => {
+    const handleAddAssessment = () => {
         setEditingAssessment(null);
-        setIsEditModalOpen(false);
-        router.refresh(); // Refresh to show updated data
+        setIsAssessmentModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setEditingAssessment(null);
+        setIsAssessmentModalOpen(false);
+    };
+
+    const handleAssessmentSuccess = () => {
+        setIsAssessmentModalOpen(false);
+        setEditingAssessment(null);
+        loadCourseData();
+        router.refresh();
     };
 
     const handleSaveSettings = async () => {
@@ -318,7 +329,13 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
                                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">
                                     Assessments
                                 </h3>
-                                <AddAssessmentButton courseId={courseId} courseColor={courseColor} buttonText="Add Assessment" />
+                                <button
+                                    onClick={handleAddAssessment}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-lg transition-opacity cursor-pointer text-sm"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Assessment
+                                </button>
                             </div>
 
                             {/* Assessment Cards */}
@@ -334,6 +351,10 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
                                             assessment={assessment as any}
                                             courseColor={courseColor}
                                             onEdit={handleEditAssessment}
+                                            onDelete={() => {
+                                                loadCourseData();
+                                                router.refresh();
+                                            }}
                                         />
                                     ))}
                                 </div>
@@ -507,16 +528,15 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
                 )}
             </div>
 
-            {/* Edit Assessment Modal */}
-            {editingAssessment && (
-                <AddAssessmentModal
-                    courseId={courseId}
-                    courseColor={courseColor}
-                    isOpen={isEditModalOpen}
-                    onClose={handleCloseEditModal}
-                    editData={editingAssessment as any}
-                />
-            )}
+            {/* Assessment Modal (Add/Edit) */}
+            <AddAssessmentModal
+                courseId={courseId}
+                courseColor={courseColor}
+                isOpen={isAssessmentModalOpen}
+                onClose={handleCloseModal}
+                onSuccess={handleAssessmentSuccess}
+                editData={editingAssessment as any}
+            />
         </>
     );
 }

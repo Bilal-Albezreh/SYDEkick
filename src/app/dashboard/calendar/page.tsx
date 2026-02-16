@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Calendar from "@/components/Calendar";
+import CalendarSyncButton from "@/components/dashboard/CalendarSyncButton";
 
 export default async function CalendarPage() {
   const supabase = await createClient();
@@ -33,7 +34,12 @@ export default async function CalendarPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 flex flex-col gap-4">
+        <div className="flex justify-between items-center px-1">
+          <h1 className="text-2xl font-bold text-white">Calendar</h1>
+          <CalendarSyncButton userId={user.id} />
+        </div>
+
         {/* 3. Pass both to the Component */}
         <Calendar
           initialData={courses || []}

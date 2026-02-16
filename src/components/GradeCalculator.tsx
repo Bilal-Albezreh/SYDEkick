@@ -111,7 +111,9 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
     processedAssessments.forEach((a: any) => {
       totalPossibleWeight += a.effectiveWeight;
       if (a.score !== null && !a.isDropped) {
-        earnedWeight += (a.score / 100) * a.effectiveWeight;
+        // [FIX] Use total_marks for precision, defaulting to 100 if missing
+        const maxMarks = a.total_marks || 100;
+        earnedWeight += (a.score / maxMarks) * a.effectiveWeight;
         attemptedWeight += a.effectiveWeight;
       }
     });
@@ -146,6 +148,11 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
     return { average: count === 0 ? 0 : totalAvg / count };
   }, [courses]);
 
+  // --- HELPER: FORMATTING ---
+  const formatNum = (num: number) => {
+    return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  };
+
   // --- CHART DATA TRANSFORM ---
   const chartData = useMemo(() => {
     return courses.map(course => {
@@ -159,9 +166,11 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
         const weight = assess.effectiveWeight;
         if (assess.isDropped) return;
 
+        const maxMarks = assess.total_marks || 100;
+
         if (assess.score !== null) {
-          locked += (assess.score / 100) * weight;
-          lost += ((100 - assess.score) / 100) * weight;
+          locked += (assess.score / maxMarks) * weight;
+          lost += ((maxMarks - assess.score) / maxMarks) * weight;
         } else {
           remaining += weight;
         }
@@ -211,14 +220,15 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
     if (!checked) setCourses(initialData);
   };
 
-  const handleScoreChange = async (assessmentId: string, newVal: string) => {
+  const handleScoreChange = async (assessmentId: string, newVal: string, totalMarks: number = 100) => {
     if (newVal === "") {
       updateLocalState(assessmentId, null);
       if (!isHypothetical) syncToDb(assessmentId, null);
       return;
     }
     const numVal = parseFloat(newVal);
-    if (isNaN(numVal) || numVal < 0 || numVal > 100) return;
+    // [FIX] Validate against total_marks instead of hardcoded 100
+    if (isNaN(numVal) || numVal < 0 || numVal > totalMarks) return;
 
     updateLocalState(assessmentId, numVal);
     if (!isHypothetical) syncToDb(assessmentId, numVal);
@@ -288,7 +298,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
             )}
           </div>
           <div className="text-right">
-            <div className={cn("text-5xl font-black tabular-nums tracking-tighter drop-shadow-lg", termStats.average >= 80 ? "text-white" : "text-white")}>{termStats.average.toFixed(1)}%</div>
+            <div className={cn("text-5xl font-black tabular-nums tracking-tighter drop-shadow-lg", termStats.average >= 80 ? "text-white" : "text-white")}>{formatNum(termStats.average)}%</div>
           </div>
         </div>
       </div>
@@ -319,7 +329,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                     </div>
                   </div>
                   <div className={cn("text-sm font-mono font-bold", getGradeColor(stats))}>
-                    {stats.isExcluded ? "P/F" : `${stats.average.toFixed(0)}%`}
+                    {stats.isExcluded ? "P/F" : `${formatNum(stats.average)}%`}
                   </div>
                 </button>
               );
@@ -367,11 +377,11 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                           {stats.isExcluded ? (
                             <div className="px-3 py-1 rounded bg-blue-900/30 border border-blue-500/30 text-blue-400 font-bold text-sm">Pass/Fail</div>
                           ) : (
-                            <div className={cn("text-2xl font-black", getGradeColor(stats))}>{stats.average.toFixed(1)}%</div>
+                            <div className={cn("text-2xl font-black", getGradeColor(stats))}>{formatNum(stats.average)}%</div>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <div className="flex justify-between text-xs font-mono text-gray-400"><span>Weight Achieved</span><span>{stats.earnedWeight.toFixed(1)} / {stats.attemptedWeight.toFixed(0)}</span></div>
+                          <div className="flex justify-between text-xs font-mono text-gray-400"><span>Weight Achieved</span><span>{formatNum(stats.earnedWeight)} / {formatNum(stats.attemptedWeight)}</span></div>
                           <Progress value={stats.average} className="h-2 bg-gray-800" indicatorColor={course.color} />
                         </div>
                       </div>
@@ -392,13 +402,13 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                   <p className="text-gray-400">{selectedCourse.course_name}</p>
                 </div>
                 <div className="flex items-end gap-6 text-right">
-                  <div><div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Weight Achieved</div><div className="text-xl font-mono font-bold text-gray-300"><span className="text-white">{selectedCourseStats.earnedWeight.toFixed(1)}</span><span className="text-gray-600 mx-1">/</span><span>{selectedCourseStats.attemptedWeight.toFixed(0)}</span></div></div>
+                  <div><div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Weight Achieved</div><div className="text-xl font-mono font-bold text-gray-300"><span className="text-white">{formatNum(selectedCourseStats.earnedWeight)}</span><span className="text-gray-600 mx-1">/</span><span>{formatNum(selectedCourseStats.attemptedWeight)}</span></div></div>
                   <div>
                     <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Current Grade</div>
                     {selectedCourseStats.isExcluded ? (
                       <div className="text-3xl font-black text-blue-400">Pass/Fail</div>
                     ) : (
-                      <div className={cn("text-5xl font-black", getGradeColor(selectedCourseStats))}>{selectedCourseStats.average.toFixed(1)}%</div>
+                      <div className={cn("text-5xl font-black", getGradeColor(selectedCourseStats))}>{formatNum(selectedCourseStats.average)}%</div>
                     )}
                   </div>
                 </div>
@@ -408,8 +418,10 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                 <div className="space-y-3">
                   {sortedAssessments.map((assess: any) => {
                     const scoreVal = assess.score !== null ? parseFloat(assess.score) : 0;
-                    const isFail = assess.score !== null && scoreVal < 50;
-                    const isAce = assess.score !== null && scoreVal >= 80;
+                    const maxMarks = assess.total_marks || 100;
+
+                    const isFail = assess.score !== null && (scoreVal / maxMarks) * 100 < 50;
+                    const isAce = assess.score !== null && (scoreVal / maxMarks) * 100 >= 80;
                     const isPending = assess.score === null;
 
                     return (
@@ -448,10 +460,10 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                             <Input
                               type="number"
                               min="0"
-                              max="100"
+                              max={maxMarks}
                               placeholder="-"
                               value={assess.score ?? ""}
-                              onChange={(e) => handleScoreChange(assess.id, e.target.value)}
+                              onChange={(e) => handleScoreChange(assess.id, e.target.value, maxMarks)}
                               disabled={assess.isDropped && !assess.score}
                               className={cn(
                                 "w-20 h-12 text-center text-xl font-bold rounded-lg transition-all duration-200",
@@ -461,7 +473,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                                   : isHypothetical
                                     ? "bg-purple-500/10 border-purple-500/20 text-purple-300 focus:border-purple-400 focus:bg-purple-500/20"
                                     : "bg-black/40 border-white/5 text-white focus:border-blue-500/50 focus:bg-black/60",
-                                parseFloat(assess.score) >= 100 && !assess.isDropped && "border-green-500/30 text-green-400 bg-green-500/5"
+                                parseFloat(assess.score) >= maxMarks && !assess.isDropped && "border-green-500/30 text-green-400 bg-green-500/5"
                               )}
                             />
                             {!isHypothetical && loadingId === assess.id && (
@@ -470,7 +482,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                               </div>
                             )}
                           </div>
-                          <span className={cn("font-medium text-sm", assess.isDropped ? "text-gray-700" : "text-gray-600")}>/ 100</span>
+                          <span className={cn("font-medium text-sm", assess.isDropped ? "text-gray-700" : "text-gray-600")}>/ {maxMarks}</span>
                         </div>
                       </div>
                     );

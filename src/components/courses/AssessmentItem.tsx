@@ -19,9 +19,10 @@ interface AssessmentItemProps {
     };
     courseColor: string;
     onEdit: (assessment: any) => void;
+    onDelete?: () => void;
 }
 
-export default function AssessmentItem({ assessment, courseColor, onEdit }: AssessmentItemProps) {
+export default function AssessmentItem({ assessment, courseColor, onEdit, onDelete }: AssessmentItemProps) {
     const router = useRouter();
     const [isHovered, setIsHovered] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -45,6 +46,7 @@ export default function AssessmentItem({ assessment, courseColor, onEdit }: Asse
 
             toast.success("Assessment deleted");
             router.refresh();
+            if (onDelete) onDelete();
         } catch (err: any) {
             console.error("Delete assessment error:", err);
             toast.error(err.message || "An unexpected error occurred");
@@ -89,12 +91,13 @@ export default function AssessmentItem({ assessment, courseColor, onEdit }: Asse
                 }
             };
         } else {
-            // Light: Subtle
+            // Light: Elevated Visibility
             return {
                 className: '',
                 style: {
-                    backgroundColor: `${courseColor}0D`, // ~5% opacity
+                    backgroundColor: `${courseColor}1A`, // ~10% opacity
                     borderColor: `${courseColor}1A`, // ~10% opacity
+                    boxShadow: `0 0 10px -5px rgba(${hexToRgb(courseColor)}, 0.15)`
                 }
             };
         }

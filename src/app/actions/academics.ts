@@ -126,7 +126,7 @@ export async function setupUserTerm(
         // Fetch all master courses for this term
         const { data: masterCourses, error: coursesError } = await supabase
             .from("master_courses")
-            .select("id, code, name, color, default_credits")
+            .select("id, code, name")
             .eq("master_term_id", masterTermId);
 
         if (coursesError) {
@@ -150,10 +150,9 @@ export async function setupUserTerm(
                         user_id: user.id,
                         term_id: userTermId,
                         course_code: masterCourse.code,
-                        name: masterCourse.name,
-                        color: masterCourse.color,
-                        // Note: default_credits maps to existing column if it exists,
-                        // otherwise this will be ignored gracefully
+                        course_name: masterCourse.name,
+                        color: "blue", // Default color
+                        credits: 0.5,  // Default credits
                     })
                     .select("id")
                     .single();
@@ -182,7 +181,7 @@ export async function setupUserTerm(
         const masterCourseIds = masterCourses.map(c => c.id);
         const { data: masterAssessments, error: assessmentsError } = await supabase
             .from("master_assessments")
-            .select("master_course_id, title, weight, default_due_offset_days")
+            .select("master_course_id, title, weight, default_due_offset_days, type, total_marks")
             .in("master_course_id", masterCourseIds);
 
         if (assessmentsError) {
@@ -210,6 +209,8 @@ export async function setupUserTerm(
                     course_id: userCourseId,
                     name: assessment.title,
                     weight: assessment.weight,
+                    total_marks: assessment.total_marks || 100,
+                    type: assessment.type || 'Assignment',
                     due_date: dueDate.toISOString().split('T')[0] + 'T12:00:00Z', // Noon UTC
                     is_completed: false,
                     score: null,

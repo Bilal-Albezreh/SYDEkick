@@ -146,6 +146,15 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         description: "" // Optional
     });
 
+    // [FIX] Sync state with props when router.refresh() updates them
+    useEffect(() => {
+        setCourses(initialData);
+        setInterviews(initialInterviews || []);
+        if (initialPersonalTasks) {
+            setPersonalTasks(initialPersonalTasks);
+        }
+    }, [initialData, initialInterviews, initialPersonalTasks]);
+
     // [NEW] EDIT EVENT MODAL STATE (Date + Grade + Name)
     const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
     const [rescheduleItem, setRescheduleItem] = useState<any>(null);
@@ -196,15 +205,15 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         if (item.type === 'interview' || item.type === 'oa') {
             // item.originalDate might be "2026-02-20T19:30:00" or "2026-02-20 19:30:00"
             const dateStr = (item.originalDate || item.due_date).replace(' ', 'T');
-            
+
             // Extract components manually to treat as local time
             const [datePart, timePart] = dateStr.split('T');
             const [year, month, day] = datePart.split('-').map(Number);
             const [hour, minute] = (timePart || '00:00').split(':').map(Number);
-            
+
             // Create Date in local timezone
             const d = new Date(year, month - 1, day, hour, minute);
-            
+
             // Format as YYYY-MM-DDTHH:MM for datetime-local input
             const formattedMonth = String(d.getMonth() + 1).padStart(2, '0');
             const formattedDay = String(d.getDate()).padStart(2, '0');
@@ -376,18 +385,25 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             if (itemType === 'assessment' && rescheduleScore !== "") {
                 const scoreValue = parseFloat(rescheduleScore);
                 if (!isNaN(scoreValue)) {
-                    await updateAssessmentDetails(itemId, datePayload, scoreValue, nameChanged ? rescheduleName : undefined);
+                    await updateAssessmentDetails(itemId, {
+                        due_date: datePayload,
+                        score: scoreValue,
+                        name: nameChanged ? rescheduleName : undefined
+                    });
                 } else {
                     // Only update date if score is invalid
                     await updateItemDateDirect(itemId, itemType, datePayload);
                     if (nameChanged) {
-                        await updateAssessmentDetails(itemId, undefined, undefined, rescheduleName);
+                        await updateAssessmentDetails(itemId, { name: rescheduleName });
                     }
                 }
             } else if (itemType === 'assessment') {
                 // Assessment with no score - update date and/or name
                 if (nameChanged) {
-                    await updateAssessmentDetails(itemId, datePayload, undefined, rescheduleName);
+                    await updateAssessmentDetails(itemId, {
+                        due_date: datePayload,
+                        name: rescheduleName
+                    });
                 } else {
                     await updateItemDateDirect(itemId, itemType, datePayload);
                 }
@@ -453,15 +469,15 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                         // Parse datetime string as local time (not UTC)
                         // Format from DB might be "2026-02-20T19:30:00" or "2026-02-20 19:30:00"
                         const dateStr = i.interview_date.replace(' ', 'T'); // Normalize format
-                        
+
                         // Extract components manually to avoid timezone issues
                         const [datePart, timePart] = dateStr.split('T');
                         const [year, month, day] = datePart.split('-').map(Number);
                         const [hour, minute] = (timePart || '00:00').split(':').map(Number);
-                        
+
                         // Create Date in local timezone
                         const dateObj = new Date(year, month - 1, day, hour, minute);
-                        
+
                         // Format: "7:30 PM"
                         timeStr = dateObj.toLocaleTimeString('en-US', {
                             hour: 'numeric',
@@ -469,7 +485,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                             hour12: true
                         });
                     }
-                } catch (e) { 
+                } catch (e) {
                     console.error("Error parsing interview date:", i.interview_date, e);
                 }
 
@@ -572,7 +588,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         try {
             // #region agent log
             const createInput = { title: newTaskData.title, due_date: newTaskData.due_date, type: newTaskData.type, course_id: newTaskData.type === 'course_work' ? newTaskData.course_id : undefined, description: newTaskData.description };
-            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Calendar.tsx:handleCreateTask',message:'calling createPersonalTask',data:{hypothesisId:'H4',type:createInput.type,hasCourseId:!!createInput.course_id},timestamp:Date.now()})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'Calendar.tsx:handleCreateTask', message: 'calling createPersonalTask', data: { hypothesisId: 'H4', type: createInput.type, hasCourseId: !!createInput.course_id }, timestamp: Date.now() }) }).catch(() => { });
             // #endregion
             // [CRITICAL] Wait for server response with REAL UUID
             const result = await createPersonalTask({
@@ -584,7 +600,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 description: newTaskData.description
             });
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Calendar.tsx:handleCreateTask',message:'createPersonalTask result',data:{hypothesisId:'H1,H2',success:result.success,error:result.error},timestamp:Date.now()})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'Calendar.tsx:handleCreateTask', message: 'createPersonalTask result', data: { hypothesisId: 'H1,H2', success: result.success, error: result.error }, timestamp: Date.now() }) }).catch(() => { });
             // #endregion
 
             if (result.success && result.task) {
@@ -1268,7 +1284,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 <div className="relative">
                                                     {/* Color indicator dot */}
                                                     {newTaskData.course_id && (
-                                                        <div 
+                                                        <div
                                                             className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-colors duration-300 z-10"
                                                             style={{ backgroundColor: getSelectedCourseColor() }}
                                                         />
@@ -1433,7 +1449,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
                                             {/* Form Content */}
                                             <div className="p-6 space-y-5 relative z-10">
-                                                
+
                                                 {/* Event Name (Editable Input) */}
                                                 <div className="group">
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
@@ -1517,8 +1533,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                                     <div className={cn(
                                                                         "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm border transition-all",
                                                                         gradeValue >= 80 ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30" :
-                                                                        gradeValue >= 60 ? "bg-yellow-500/10 text-yellow-300 border-yellow-500/30" :
-                                                                        "bg-red-500/10 text-red-300 border-red-500/30"
+                                                                            gradeValue >= 60 ? "bg-yellow-500/10 text-yellow-300 border-yellow-500/30" :
+                                                                                "bg-red-500/10 text-red-300 border-red-500/30"
                                                                     )}>
                                                                         <span className="text-xs">{gradeValue >= 80 ? "🎉" : gradeValue >= 60 ? "⚠️" : "❌"}</span>
                                                                         {gradeValue >= 80 ? "Excellent" : gradeValue >= 60 ? "Passing" : "Needs Improvement"}

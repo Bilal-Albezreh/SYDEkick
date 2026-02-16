@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createCourse } from "@/app/actions/courses";
 import { getCurrentTerm } from "@/app/actions/terms";
 import { X, Loader2, Plus, ArrowRight, GraduationCap } from "lucide-react";
@@ -18,6 +19,7 @@ interface Term {
 interface AddCourseModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
 }
 
 // Jewel Tones for "Expensive" Feel
@@ -34,7 +36,8 @@ const COURSE_COLORS = [
     { name: "Pacific Teal", hex: "#0096c7" },
 ];
 
-export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps) {
+export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourseModalProps) {
+    const router = useRouter();
     const [courseCode, setCourseCode] = useState("");
     const [courseName, setCourseName] = useState("");
     const [selectedColor, setSelectedColor] = useState(COURSE_COLORS[0].hex);
@@ -121,10 +124,14 @@ export default function AddCourseModal({ isOpen, onClose }: AddCourseModalProps)
             setCourseName("");
             setSelectedColor(COURSE_COLORS[0].hex);
             setCredits(0.5);
-            setSelectedTermLabel(""); // Changed from selectedTermId
+            setSelectedTermLabel("");
             setError(null);
             setLoading(false);
             onClose();
+
+            // Refresh and trigger success callback
+            router.refresh();
+            if (onSuccess) onSuccess();
         } catch (err: any) {
             console.error("Create course error:", err);
             setError(err.message || "An unexpected error occurred");

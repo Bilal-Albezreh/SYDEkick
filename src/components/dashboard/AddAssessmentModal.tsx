@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createAssessment, updateAssessmentDetails } from "@/app/actions/assessments";
 import { X, Loader2, Plus, ArrowRight, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +14,7 @@ interface AddAssessmentModalProps {
     courseColor?: string;
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
     editData?: {
         id: string;
         name: string;
@@ -20,56 +22,89 @@ interface AddAssessmentModalProps {
         weight: number;
         total_marks: number;
         due_date: string | null;
+        score?: number | null;
     } | null;
 }
 
 // Default color for assessments
-const DEFAULT_ASSESSMENT_COLOR = "#4cc9f0"; // Diamond Cyan
+const DEFAULT_ASSESSMENT_COLOR = "#4cc9f0";
 
-export default function AddAssessmentModal({ courseId, courseColor, isOpen, onClose, editData = null }: AddAssessmentModalProps) {
+export default function AddAssessmentModal({ courseId, courseColor, isOpen, onClose, onSuccess, editData = null }: AddAssessmentModalProps) {
     const isEditMode = !!editData;
     const modalColor = courseColor || DEFAULT_ASSESSMENT_COLOR;
-    const [assessmentName, setAssessmentName] = useState("");
-    const [selectedType, setSelectedType] = useState("");
-    const [weight, setWeight] = useState("");
-    const [totalMarks, setTotalMarks] = useState("100");
-    const [dueDate, setDueDate] = useState("");
+
+    // ----------------------------------------------------------------------
+    // 1. LAZY STATE INITIALIZATION (The Fix)
+    // Initialize state directly from props so there is no "empty" render frame.
+    // ----------------------------------------------------------------------
+    const [assessmentName, setAssessmentName] = useState(() => editData?.name || "");
+    const [selectedType, setSelectedType] = useState(() => editData?.type || "Assignment");
+    const [weight, setWeight] = useState(() => editData?.weight?.toString() || "");
+    const [totalMarks, setTotalMarks] = useState(() => editData?.total_marks?.toString() || "100");
+    const [dueDate, setDueDate] = useState(() => editData?.due_date || "");
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Pre-fill form when editing
+    // ----------------------------------------------------------------------
+    // 2. SYNC LOGIC
+    // Force state sync on every open to fix persistence bug
+    // ----------------------------------------------------------------------
     useEffect(() => {
         if (isOpen) {
             if (editData) {
-                // If editing, use existing data. If type is missing, default to 'Assignment'
-                setAssessmentName(editData.name);
-                setSelectedType(editData.type || 'Assignment'); // Default for null/undefined types
-                setWeight(editData.weight.toString());
-                setTotalMarks(editData.total_marks.toString());
+                setAssessmentName(editData.name || "");
+                // Use 'as any' to bypass the TS string assignment error if types mismatch temporarily
+                setSelectedType((editData.type || "Assignment") as any);
+                setWeight(editData.weight?.toString() || "");
+                setTotalMarks(editData.total_marks?.toString() || "100");
                 setDueDate(editData.due_date || "");
             } else {
-                // If adding new, reset form
                 setAssessmentName("");
-                setSelectedType("Assignment"); // Default for new items
+                setSelectedType("Assignment" as any);
                 setWeight("");
                 setTotalMarks("100");
                 setDueDate("");
             }
             setError(null);
         }
-    }, [editData, isOpen]);
+    }, [isOpen, editData]);
+
+    const router = useRouter();
+
+    // ----------------------------------------------------------------------
+    // 3. DYNAMIC OPTIONS LOGIC
+    // Ensure custom types (e.g. "Midterm") appear in the list
+    // ----------------------------------------------------------------------
+    const currentTypeOptions = [...ASSESSMENT_TYPES];
+    // If we have a type that isn't in the standard list, add it dynamically
+    if (selectedType && !currentTypeOptions.includes(selectedType)) {
+        currentTypeOptions.push(selectedType);
+    } else if (editData?.type && !currentTypeOptions.includes(editData.type)) {
+        // Fallback check for editData
+        currentTypeOptions.push(editData.type);
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validation
-        if (!assessmentName.trim() || !selectedType || !weight) {
-            setError("Please fill in all required fields");
+        // Validation - Refactored to avoid blocking valid edits
+        if (assessmentName.trim().length === 0) {
+            setError("Assessment name is required");
+            return;
+        }
+
+        if (!selectedType) {
+            setError("Assessment type is required");
             return;
         }
 
         const weightNum = parseFloat(weight);
-        if (isNaN(weightNum) || weightNum < 0 || weightNum > 100) {
+        if (isNaN(weightNum)) {
+            setError("Weight must be a valid number");
+            return;
+        }
+        if (weightNum < 0 || weightNum > 100) {
             setError("Weight must be between 0 and 100");
             return;
         }
@@ -89,9 +124,14 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
             if (isEditMode && editData) {
                 result = await updateAssessmentDetails(
                     editData.id,
-                    dueDate || undefined,
-                    undefined,
-                    assessmentName
+                    {
+                        name: assessmentName.trim(),
+                        type: selectedType,
+                        weight: parseFloat(weight),
+                        total_marks: parseFloat(totalMarks),
+                        due_date: dueDate || null,
+                        score: editData.score !== undefined ? editData.score : undefined
+                    }
                 );
             } else {
                 result = await createAssessment(
@@ -110,14 +150,11 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                 return;
             }
 
-            setAssessmentName("");
-            setSelectedType("");
-            setWeight("");
-            setTotalMarks("100");
-            setDueDate("");
-            setError(null);
-            setLoading(false);
+            // Refresh first, then close to avoid UI flicker
+            await router.refresh();
+            if (onSuccess) onSuccess();
             onClose();
+
         } catch (err: any) {
             console.error(isEditMode ? "Update assessment error:" : "Create assessment error:", err);
             setError(err.message || "An unexpected error occurred");
@@ -127,21 +164,12 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
 
     const handleClose = () => {
         if (!loading) {
-            setAssessmentName("");
-            setSelectedType("");
-            setWeight("");
-            setTotalMarks("100");
-            setDueDate("");
+            // Optional: Don't clear state on close if you want it to persist until next open
+            // But usually resetting error is good
             setError(null);
             onClose();
         }
     };
-
-    // Dynamic options logic: Ensure selected value is always in the list
-    const currentOptions = [...ASSESSMENT_TYPES] as string[];
-    if (editData?.type && !currentOptions.includes(editData.type)) {
-        currentOptions.push(editData.type);
-    }
 
     return (
         <AnimatePresence>
@@ -178,14 +206,11 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                         >
                             {/* Ambient Background Effects */}
                             <div className="absolute inset-0 z-0 pointer-events-none">
-                                {/* Noise Texture */}
                                 <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
                                     style={{
                                         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
                                     }}
                                 />
-
-                                {/* Subtle Grid */}
                                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_70%,transparent_100%)]" />
                             </div>
 
@@ -218,7 +243,6 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
 
                             {/* Form */}
                             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                                {/* Error Display */}
                                 {error && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
@@ -234,7 +258,7 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                                     {/* Assessment Name */}
                                     <div className="group">
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
-                                            Assessment Name *
+                                            Assessment Name
                                         </label>
                                         <div className="relative">
                                             <input
@@ -253,10 +277,10 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                                     {/* Assessment Type */}
                                     <div className="group">
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
-                                            Type *
+                                            Type
                                         </label>
+                                        {/* REMOVED 'key' prop to allow state to persist and update naturally */}
                                         <Select
-                                            key={editData?.id || 'new'}
                                             value={selectedType}
                                             onValueChange={setSelectedType}
                                             disabled={loading}
@@ -265,7 +289,7 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                                                 <SelectValue placeholder="Select type" />
                                             </SelectTrigger>
                                             <SelectContent className="bg-zinc-900 border-white/10 z-[200]">
-                                                {currentOptions.map((type) => (
+                                                {currentTypeOptions.map((type) => (
                                                     <SelectItem
                                                         key={type}
                                                         value={type}
@@ -280,10 +304,9 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
 
                                     {/* Weight and Total Marks Row */}
                                     <div className="grid grid-cols-2 gap-4">
-                                        {/* Weight */}
                                         <div className="group">
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
-                                                Weight (%) *
+                                                Weight (%)
                                             </label>
                                             <input
                                                 type="number"
@@ -298,7 +321,6 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                                             />
                                         </div>
 
-                                        {/* Total Marks */}
                                         <div className="group">
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
                                                 Total Marks
