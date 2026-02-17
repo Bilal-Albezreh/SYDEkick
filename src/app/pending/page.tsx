@@ -26,12 +26,12 @@ export default function PendingPage() {
         </CardHeader>
         <CardContent className="space-y-6 text-center">
           <p className="text-gray-500">
-            Thanks for signing up! This is a private tool for SYDE 2028. 
-            An admin (Bilal) needs to approve your account before you can access the dashboard.
+            Thanks for signing up!
+            An admin needs to approve your account before you can access our Beta.
           </p>
-          
+
           <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 text-sm text-yellow-800">
-            Please message me to let me know you've signed up.
+            We will notify you once approved.
           </div>
 
           <Button variant="outline" onClick={handleLogout} className="w-full">

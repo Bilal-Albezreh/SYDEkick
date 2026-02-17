@@ -418,6 +418,75 @@ export interface Database {
             referencedColumns: ["id"]
           }
         ]
+      },
+      career_stats: {
+        Row: {
+          user_id: string
+          pending_count: number
+          oa_count: number
+          interview_count: number
+          offer_count: number
+          no_offer_count: number
+          rejected_count: number
+          ghosted_count: number
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          pending_count?: number
+          oa_count?: number
+          interview_count?: number
+          offer_count?: number
+          no_offer_count?: number
+          rejected_count?: number
+          ghosted_count?: number
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          pending_count?: number
+          oa_count?: number
+          interview_count?: number
+          offer_count?: number
+          no_offer_count?: number
+          rejected_count?: number
+          ghosted_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      },
+      interviews: {
+        Row: {
+          id: string
+          user_id: string
+          company_name: string | null
+          role_title: string | null
+          interview_date: string | null
+          status: string | null
+          type: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          company_name?: string | null
+          role_title?: string | null
+          interview_date?: string | null
+          status?: string | null
+          type?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          company_name?: string | null
+          role_title?: string | null
+          interview_date?: string | null
+          status?: string | null
+          type?: string | null
+          created_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
