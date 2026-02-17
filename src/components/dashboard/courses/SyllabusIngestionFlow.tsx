@@ -73,18 +73,27 @@ const mockAnalyzeSyllabus = (file: File): Promise<ExtractedData> => {
         setTimeout(() => {
             resolve({
                 courseInfo: {
-                    code: "SYDE 121",
-                    name: "Digital Computation",
-                    term: "1B",
+                    code: "SYDE 285",
+                    name: "Materials Chemistry",
+                    term: "2A",
                     credits: 0.5,
-                    confidence: 0.98,
-                    color: "#10B981",
-                    location: { page: 1, y: 150 },
+                    confidence: 1.0,
+                    color: "#4361ee", // Blue for Chemistry vibes
+                    location: { page: 1, y: 100 },
                 },
                 assessments: [
-                    { id: "a1", name: "Midterm Exam", weight: 25, date: "2026-02-14", type: "Exam", confidence: 0.95, location: { page: 2, y: 400 } },
-                    { id: "a2", name: "Final Project", weight: 40, date: "2026-04-10", type: "Project", confidence: 0.65, location: { page: 3, y: 100 } },
-                    { id: "a3", name: "Quizzes", weight: 10, date: "2026-01-20", type: "Quiz", confidence: 0.99, location: { page: 2, y: 600 } },
+                    { id: "a1", name: "Assignment 1", weight: 1.5, date: "2026-01-25", type: "Assignment", location: { page: 1, y: 200 } },
+                    { id: "a2", name: "Assignment 2", weight: 1.5, date: "2026-02-08", type: "Assignment", location: { page: 1, y: 220 } },
+                    { id: "a3", name: "Assignment 3", weight: 1.5, date: "2026-03-02", type: "Assignment", location: { page: 1, y: 240 } },
+                    { id: "a4", name: "Assignment 4", weight: 1.5, date: "2026-03-09", type: "Assignment", location: { page: 1, y: 260 } },
+                    { id: "cs", name: "Case Studies / Tutorials", weight: 10, date: "2026-04-01", type: "Other", location: { page: 1, y: 300 } },
+                    { id: "mid", name: "Midterm Exam", weight: 20, date: "2026-02-24", type: "Exam", location: { page: 1, y: 350 } },
+                    { id: "final", name: "Final Exam", weight: 45, date: "2026-04-20", type: "Exam", location: { page: 1, y: 400 } },
+                    { id: "q1", name: "Quiz 1", weight: 1, date: "2026-01-25", type: "Quiz", location: { page: 1, y: 450 } },
+                    { id: "q2", name: "Quiz 2", weight: 1, date: "2026-02-08", type: "Quiz", location: { page: 1, y: 470 } },
+                    { id: "q3", name: "Quiz 3", weight: 1, date: "2026-03-06", type: "Quiz", location: { page: 1, y: 490 } },
+                    { id: "q4", name: "Quiz 4", weight: 1, date: "2026-03-13", type: "Quiz", location: { page: 1, y: 510 } },
+                    { id: "proj", name: "Term Project", weight: 15, date: "2026-04-05", type: "Project", location: { page: 1, y: 550 } },
                 ],
             });
         }, 3000);
