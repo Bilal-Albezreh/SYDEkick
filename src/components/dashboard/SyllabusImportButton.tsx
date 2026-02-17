@@ -64,43 +64,52 @@ export default function SyllabusImportButton() {
                                 opacity: 1,
                                 scale: 1,
                                 y: 0,
-                                width: isReviewMode ? "115vw" : "390px",
+                                width: isReviewMode ? "115vw" : "395px",
                                 height: isReviewMode ? "90vh" : "auto",
                             }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            transition={{ layout: { duration: 0.6, type: "spring", bounce: 0.2 } }}
+                            transition={{ layout: { duration: 0.6, type: "spring", bounce: 0.1 } }}
                             className={`
-                                relative z-10 overflow-hidden
+                                relative z-10 
                                 ${isReviewMode ? "rounded-[24px]" : "rounded-[40px]"}
                                 shadow-2xl
                             `}
                         >
-                            {/* --- THE ROTATING SIRI BORDER --- */}
-                            <div className="absolute inset-0 z-0 overflow-hidden">
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                                    className="absolute -inset-[100%] opacity-100"
-                                    style={{
-                                        background: `conic-gradient(from 0deg, 
-                      #4f46e5 0deg, 
-                      #9333ea 90deg, 
-                      #06b6d4 180deg, 
-                      #4f46e5 270deg, 
-                      #4f46e5 360deg)`
-                                    }}
-                                />
-                            </div>
-
-                            {/* --- THE MASKED BODY --- 
-                  This creates the '1.5px border' look by being slightly smaller
-              */}
+                            {/* --- 3. THE DIFFUSE AURA (Outer Glow) --- */}
                             <div className={`
-                                absolute inset-[1.5px] z-0 bg-[#09090b] overflow-hidden
-                                ${isReviewMode ? "rounded-[22px]" : "rounded-[38px]"}
+                                absolute inset-0 -z-10 blur-xl opacity-50
+                                bg-[conic-gradient(from_0deg,#bd60f3_0%,#f5b9ea_40%,#67e7f5_70%,#bd60f3_100%)]
+                                transition-all duration-500
+                                ${isReviewMode ? "rounded-[24px]" : "rounded-[40px]"}
+                            `} />
+
+                            {/* --- CLIPPING CONTAINER (Masks the spinner) --- */}
+                            <div className={`
+                                absolute inset-0 overflow-hidden
+                                ${isReviewMode ? "rounded-[24px]" : "rounded-[40px]"}
                             `}>
-                                {/* Diffuse Edge Glow Internal */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-cyan-500/10" />
+                                {/* --- THE ROTATING SIRI BORDER --- */}
+                                <div className="absolute inset-0 z-0">
+                                    <motion.div
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                                        className="absolute -inset-[100%] opacity-100"
+                                        style={{
+                                            background: `conic-gradient(from 0deg, #bd60f3 0%, #f5b9ea 40%, #67e7f5 70%, #bd60f3 100%)`
+                                        }}
+                                    />
+                                </div>
+
+                                {/* --- THE MASKED BODY (Inner Content Background) --- 
+                                    This creates the '1.5px border' look by being slightly smaller
+                                */}
+                                <div className={`
+                                    absolute inset-[1.5px] z-0 bg-[#09090b] overflow-hidden
+                                    ${isReviewMode ? "rounded-[22px]" : "rounded-[38px]"}
+                                `}>
+                                    {/* Diffuse Edge Glow Internal */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-cyan-500/10" />
+                                </div>
                             </div>
 
                             {/* --- CONTENT --- */}

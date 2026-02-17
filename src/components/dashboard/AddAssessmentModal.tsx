@@ -52,23 +52,16 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
     // ----------------------------------------------------------------------
     useEffect(() => {
         if (isOpen) {
-            if (editData) {
-                setAssessmentName(editData.name || "");
-                // Use 'as any' to bypass the TS string assignment error if types mismatch temporarily
-                setSelectedType((editData.type || "Assignment") as any);
-                setWeight(editData.weight?.toString() || "");
-                setTotalMarks(editData.total_marks?.toString() || "100");
-                setDueDate(editData.due_date || "");
-            } else {
-                setAssessmentName("");
-                setSelectedType("Assignment" as any);
-                setWeight("");
-                setTotalMarks("100");
-                setDueDate("");
-            }
+            // Set values immediately. If no editData, use defaults.
+            setAssessmentName(editData?.name || "");
+            // Use 'as any' to bypass the TS string assignment error if types mismatch
+            setSelectedType((editData?.type || "Assignment") as any);
+            setWeight(editData?.weight?.toString() || "");
+            setTotalMarks(editData?.total_marks?.toString() || "100");
+            setDueDate(editData?.due_date || "");
             setError(null);
         }
-    }, [isOpen, editData]);
+    }, [isOpen, editData ? editData.id : null]); // Only re-run when the specific ID changes or modal opens
 
     const router = useRouter();
 
@@ -76,8 +69,8 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
     // 3. DYNAMIC OPTIONS LOGIC
     // Ensure custom types (e.g. "Midterm") appear in the list
     // ----------------------------------------------------------------------
-    const currentTypeOptions = [...ASSESSMENT_TYPES];
-    // If we have a type that isn't in the standard list, add it dynamically
+    const currentTypeOptions = [...ASSESSMENT_TYPES] as string[];
+    // If we have a selected type that isn't in the standard list, add it dynamically
     if (selectedType && !currentTypeOptions.includes(selectedType)) {
         currentTypeOptions.push(selectedType);
     } else if (editData?.type && !currentTypeOptions.includes(editData.type)) {
@@ -279,8 +272,9 @@ export default function AddAssessmentModal({ courseId, courseColor, isOpen, onCl
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
                                             Type
                                         </label>
-                                        {/* REMOVED 'key' prop to allow state to persist and update naturally */}
+                                        {/* Set key to force re-render when switching edit items */}
                                         <Select
+                                            key={editData ? `edit-${editData.id}` : 'create'}
                                             value={selectedType}
                                             onValueChange={setSelectedType}
                                             disabled={loading}

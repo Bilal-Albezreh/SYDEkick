@@ -331,10 +331,38 @@ export default function CourseManagerPanel({ courseId }: CourseManagerPanelProps
                                 </h3>
                                 <button
                                     onClick={handleAddAssessment}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-lg transition-opacity cursor-pointer text-sm"
+                                    className="group relative inline-flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-white transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-lg hover:shadow-indigo-500/25 overflow-hidden text-sm"
+                                    style={{
+                                        backgroundColor: courseColor,
+                                        boxShadow: courseColor ? `0 0 15px ${courseColor}40` : undefined
+                                    }}
                                 >
-                                    <Plus className="w-4 h-4" />
-                                    Add Assessment
+                                    {/* APPLE INTELLIGENCE GLOW BACKGROUND */}
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                                        <div className="absolute inset-[-100%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#bd60f3_0%,#f5b9ea_50%,#67e7f5_100%)] blur-xl" />
+                                    </div>
+
+                                    {/* Default Background (Visible when not hovering) - Fallback if no courseColor */}
+                                    {!courseColor && (
+                                        <div className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 group-hover:opacity-0 transition-opacity duration-500" />
+                                    )}
+
+                                    {/* If courseColor exists, we use the style prop for bg, but we need to fade it out on hover to show the glow */}
+                                    {courseColor && (
+                                        <div
+                                            className="absolute inset-0 transition-opacity duration-500 group-hover:opacity-0"
+                                            style={{ backgroundColor: courseColor }}
+                                        />
+                                    )}
+
+                                    {/* Glassy Overlay for Text Readability (Visible on hover) */}
+                                    <div className="absolute inset-[1px] rounded-lg bg-zinc-900/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                                    {/* Content */}
+                                    <div className="relative z-10 flex items-center gap-2">
+                                        <Plus className="w-4 h-4 group-hover:text-white transition-colors" />
+                                        <span>Add Assessment</span>
+                                    </div>
                                 </button>
                             </div>
 

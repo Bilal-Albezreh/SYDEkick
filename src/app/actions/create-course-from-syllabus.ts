@@ -7,12 +7,15 @@ interface AssessmentData {
     name: string;
     weight: number | string;
     date?: string;
+    type?: string;
 }
 
 interface CourseInfoData {
     code?: string;
     name?: string;
     color?: string;
+    term?: string;
+    credits?: number;
 }
 
 interface SyllabusData {
@@ -29,17 +32,34 @@ export async function createCourseFromSyllabus(data: SyllabusData) {
             return { success: false, error: "Not authenticated" };
         }
 
-        // 1. Get current active term
-        // First try to find a term marked as current
-        const { data: currentTerm } = await supabase
-            .from("terms")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("is_current", true)
-            .maybeSingle();
+        // 1. Get Term ID
+        let termId: string | undefined;
 
-        // If no current term, just grab the most recent one
-        let termId = currentTerm?.id;
+        // If a specific term name is provided (e.g., "1A", "2B") and not "Current"
+        if (data.courseInfo.term && data.courseInfo.term !== "Current") {
+            const { data: likelyTerm } = await supabase
+                .from("terms")
+                .select("id")
+                .eq("user_id", user.id)
+                .ilike("name", data.courseInfo.term) // Case-insensitive match
+                .maybeSingle();
+
+            if (likelyTerm) termId = likelyTerm.id;
+        }
+
+        // If no term found yet, or "Current" was selected, find current/active term
+        if (!termId) {
+            const { data: currentTerm } = await supabase
+                .from("terms")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("is_current", true)
+                .maybeSingle();
+
+            termId = currentTerm?.id;
+        }
+
+        // Fallback: If still no term, use most recent one
         if (!termId) {
             const { data: recentTerm } = await supabase
                 .from("terms")
@@ -65,7 +85,7 @@ export async function createCourseFromSyllabus(data: SyllabusData) {
                 course_code: courseInfo.code || "UNKNOWN",
                 course_name: courseInfo.name || "Untitled Course",
                 color: courseInfo.color || "#10B981",
-                credits: 0.5, // Default
+                credits: courseInfo.credits || 0.5, // Use provided credits or default
             })
             .select()
             .single();
@@ -81,7 +101,7 @@ export async function createCourseFromSyllabus(data: SyllabusData) {
                 user_id: user.id,
                 course_id: newCourse.id,
                 name: a.name,
-                type: "Assignment", // Default type for now, or infer if possible
+                type: a.type || "Assignment", // User provided type or default
                 weight: typeof a.weight === 'number' ? a.weight : 0,
                 total_marks: 100,
                 due_date: a.date ? new Date(a.date).toISOString() : null,
