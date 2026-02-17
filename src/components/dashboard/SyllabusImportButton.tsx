@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sparkles, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { SyllabusIngestionFlow } from "@/components/dashboard/courses/SyllabusIn
 import { createCourseFromSyllabus } from "@/app/actions/create-course-from-syllabus";
 
 export default function SyllabusImportButton() {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
 
@@ -15,7 +17,7 @@ export default function SyllabusImportButton() {
     useEffect(() => {
         if (!isOpen) {
             // Small delay to allow exit animation to finish before snapping back
-            const timer = setTimeout(() => setIsReviewMode(false), 300);
+            const timer = setTimeout(() => setIsReviewMode(false), 500);
             return () => clearTimeout(timer);
         }
     }, [isOpen]);
@@ -127,7 +129,11 @@ export default function SyllabusImportButton() {
                                         onConfirmExternal={async (data) => {
                                             const res = await createCourseFromSyllabus(data);
                                             if (res?.error) toast.error(res.error);
-                                            else { toast.success("Imported!"); setIsOpen(false); setIsReviewMode(false); }
+                                            else {
+                                                setIsOpen(false);
+                                                toast.success("Imported!");
+                                                router.refresh();
+                                            }
                                         }}
                                     />
                                 </div>

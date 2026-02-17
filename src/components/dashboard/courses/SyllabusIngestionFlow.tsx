@@ -82,18 +82,18 @@ const mockAnalyzeSyllabus = (file: File): Promise<ExtractedData> => {
                     location: { page: 1, y: 100 },
                 },
                 assessments: [
-                    { id: "a1", name: "Assignment 1", weight: 1.5, date: "2026-01-25", type: "Assignment", location: { page: 1, y: 200 } },
-                    { id: "a2", name: "Assignment 2", weight: 1.5, date: "2026-02-08", type: "Assignment", location: { page: 1, y: 220 } },
-                    { id: "a3", name: "Assignment 3", weight: 1.5, date: "2026-03-02", type: "Assignment", location: { page: 1, y: 240 } },
-                    { id: "a4", name: "Assignment 4", weight: 1.5, date: "2026-03-09", type: "Assignment", location: { page: 1, y: 260 } },
-                    { id: "cs", name: "Case Studies / Tutorials", weight: 10, date: "2026-04-01", type: "Other", location: { page: 1, y: 300 } },
-                    { id: "mid", name: "Midterm Exam", weight: 20, date: "2026-02-24", type: "Exam", location: { page: 1, y: 350 } },
-                    { id: "final", name: "Final Exam", weight: 45, date: "2026-04-20", type: "Exam", location: { page: 1, y: 400 } },
-                    { id: "q1", name: "Quiz 1", weight: 1, date: "2026-01-25", type: "Quiz", location: { page: 1, y: 450 } },
-                    { id: "q2", name: "Quiz 2", weight: 1, date: "2026-02-08", type: "Quiz", location: { page: 1, y: 470 } },
-                    { id: "q3", name: "Quiz 3", weight: 1, date: "2026-03-06", type: "Quiz", location: { page: 1, y: 490 } },
-                    { id: "q4", name: "Quiz 4", weight: 1, date: "2026-03-13", type: "Quiz", location: { page: 1, y: 510 } },
-                    { id: "proj", name: "Term Project", weight: 15, date: "2026-04-05", type: "Project", location: { page: 1, y: 550 } },
+                    { id: "a1", name: "Assignment 1", weight: 1.5, date: "2026-01-25", type: "Assignment", confidence: 0.92, location: { page: 1, y: 200 } },
+                    { id: "a2", name: "Assignment 2", weight: 1.5, date: "2026-02-08", type: "Assignment", confidence: 0.88, location: { page: 1, y: 220 } },
+                    { id: "a3", name: "Assignment 3", weight: 1.5, date: "2026-03-02", type: "Assignment", confidence: 0.95, location: { page: 1, y: 240 } },
+                    { id: "a4", name: "Assignment 4", weight: 1.5, date: "2026-03-09", type: "Assignment", confidence: 0.84, location: { page: 1, y: 260 } },
+                    { id: "cs", name: "Case Studies / Tutorials", weight: 10, date: "2026-04-01", type: "Other", confidence: 0.87, location: { page: 1, y: 300 } },
+                    { id: "mid", name: "Midterm Exam", weight: 20, date: "2026-02-24", type: "Exam", confidence: 0.98, location: { page: 1, y: 350 } },
+                    { id: "final", name: "Final Exam", weight: 45, date: "2026-04-20", type: "Exam", confidence: 0.99, location: { page: 1, y: 400 } },
+                    { id: "q1", name: "Quiz 1", weight: 1, date: "2026-01-25", type: "Quiz", confidence: 0.85, location: { page: 1, y: 450 } },
+                    { id: "q2", name: "Quiz 2", weight: 1, date: "2026-02-08", type: "Quiz", confidence: 0.91, location: { page: 1, y: 470 } },
+                    { id: "q3", name: "Quiz 3", weight: 1, date: "2026-03-06", type: "Quiz", confidence: 0.89, location: { page: 1, y: 490 } },
+                    { id: "q4", name: "Quiz 4", weight: 1, date: "2026-03-13", type: "Quiz", confidence: 0.93, location: { page: 1, y: 510 } },
+                    { id: "proj", name: "Term Project", weight: 15, date: "2026-04-05", type: "Project", confidence: 0.65, location: { page: 7, y: 350 } },
                 ],
             });
         }, 3000);
@@ -445,13 +445,26 @@ const ReviewView = ({
 
                                         {/* Row 1: Name & Weight */}
                                         <div className="flex justify-between items-start mb-3 relative z-10 gap-4">
-                                            <Input
-                                                value={item.name}
-                                                onChange={(e) => updateAssessment(item.id, "name", e.target.value)}
-                                                onFocus={() => handleInputFocus(item.location)}
-                                                className="bg-transparent border-none text-lg font-bold text-white p-0 h-auto focus-visible:ring-0 placeholder:text-zinc-600 flex-1 min-w-0"
-                                                placeholder="Assessment Name"
-                                            />
+                                            <div className="flex-1 min-w-0 flex items-center gap-2">
+                                                <Input
+                                                    value={item.name}
+                                                    onChange={(e) => updateAssessment(item.id, "name", e.target.value)}
+                                                    onFocus={() => handleInputFocus(item.location)}
+                                                    className="bg-transparent border-none text-lg font-bold text-white p-0 h-auto focus-visible:ring-0 placeholder:text-zinc-600 flex-1 min-w-0"
+                                                    placeholder="Assessment Name"
+                                                />
+                                                {/* Confidence Badge (Inline) */}
+                                                <span className={cn(
+                                                    "text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0",
+                                                    (item.confidence || 0.99) > 0.85
+                                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                                        : (item.confidence || 0.99) > 0.60
+                                                            ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                                                            : "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                                                )}>
+                                                    {Math.round((item.confidence || 0.99) * 100)}%
+                                                </span>
+                                            </div>
                                             <div className="flex items-center gap-2 shrink-0">
                                                 <div className="relative w-20">
                                                     <Input
@@ -459,7 +472,7 @@ const ReviewView = ({
                                                         value={item.weight}
                                                         onChange={(e) => updateAssessment(item.id, "weight", Number(e.target.value))}
                                                         onFocus={() => handleInputFocus(item.location)}
-                                                        className="bg-black/20 border-white/10 text-white h-7 text-sm focus:bg-black/40 transition-colors text-right pr-6"
+                                                        className="bg-black/20 border-white/10 text-white h-7 text-sm focus:bg-black/40 transition-colors text-right pr-6 w-full"
                                                     />
                                                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">%</span>
                                                 </div>
@@ -501,12 +514,7 @@ const ReviewView = ({
                                             </div>
                                         </div>
 
-                                        {/* Confidence Badge (Floating) */}
-                                        <div className="absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity">
-                                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded border opacity-50", item.confidence && item.confidence > 0.8 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400")}>
-                                                {(item.confidence || 0.99) * 100}%
-                                            </span>
-                                        </div>
+
                                     </motion.div>
                                 ))}
                             </div>
@@ -619,9 +627,8 @@ export const SyllabusIngestionFlow = ({ onConfirmExternal, onAnalysisComplete }:
 
     const handleConfirm = (data: ExtractedData) => {
         if (onConfirmExternal) onConfirmExternal(data);
-        setFlowState("IDLE");
-        setFile(null);
-        setExtractedData(null);
+        // [FIX] Don't reset state here to prevent "flashing" the IDLE view while closing.
+        // The parent component will unmount us anyway.
     };
 
     // --- FIX: The Root Container is now Transparent ---
