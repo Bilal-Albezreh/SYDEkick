@@ -132,6 +132,8 @@ export interface Database {
           course_name: string
           color: string
           credits: number
+          squad_id: string | null
+          master_course_id: string | null
           created_at: string
           updated_at: string
         }
@@ -143,6 +145,8 @@ export interface Database {
           course_name: string
           color: string
           credits?: number
+          squad_id?: string | null
+          master_course_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -154,6 +158,8 @@ export interface Database {
           course_name?: string
           color?: string
           credits?: number
+          squad_id?: string | null
+          master_course_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -225,19 +231,31 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          duration: number
+          duration_minutes: number
+          objective_name: string
+          linked_assessment_id: string | null
+          is_completed: boolean
+          started_at: string
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          duration: number
+          duration_minutes: number
+          objective_name: string
+          linked_assessment_id?: string | null
+          is_completed?: boolean
+          started_at: string
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          duration?: number
+          duration_minutes?: number
+          objective_name?: string
+          linked_assessment_id?: string | null
+          is_completed?: boolean
+          started_at?: string
           created_at?: string
         }
         Relationships: []
@@ -275,7 +293,11 @@ export interface Database {
           owner_id: string
           invite_code: string
           description: string | null
+          program: string | null
+          term: string | null
+          is_official: boolean
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -283,7 +305,11 @@ export interface Database {
           owner_id: string
           invite_code?: string
           description?: string | null
+          program?: string | null
+          term?: string | null
+          is_official?: boolean
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
@@ -291,28 +317,35 @@ export interface Database {
           owner_id?: string
           invite_code?: string
           description?: string | null
+          program?: string | null
+          term?: string | null
+          is_official?: boolean
           created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
 
       squad_memberships: {
         Row: {
+          id: string
           user_id: string
           squad_id: string
-          role: "leader" | "member"
+          role: string
           joined_at: string
         }
         Insert: {
+          id?: string
           user_id: string
           squad_id: string
-          role?: "leader" | "member"
+          role: string
           joined_at?: string
         }
         Update: {
+          id?: string
           user_id?: string
           squad_id?: string
-          role?: "leader" | "member"
+          role?: string
           joined_at?: string
         }
         Relationships: []
@@ -322,19 +355,37 @@ export interface Database {
         Row: {
           id: string
           squad_id: string
-          master_course_id: string
+          title: string
+          description: string | null
+          due_date: string | null
+          weight: number | null
+          type: string
+          category: string | null
+          is_archived: boolean
           created_at: string
         }
         Insert: {
           id?: string
           squad_id: string
-          master_course_id: string
+          title: string
+          description?: string | null
+          due_date?: string | null
+          weight?: number | null
+          type: string
+          category?: string | null
+          is_archived?: boolean
           created_at?: string
         }
         Update: {
           id?: string
           squad_id?: string
-          master_course_id?: string
+          title?: string
+          description?: string | null
+          due_date?: string | null
+          weight?: number | null
+          type?: string
+          category?: string | null
+          is_archived?: boolean
           created_at?: string
         }
         Relationships: []
@@ -416,26 +467,35 @@ export interface Database {
       master_courses: {
         Row: {
           id: string
+          squad_id: string | null
+          master_term_id: string | null
           code: string
           name: string
-          title: string | null
-          description: string | null
+          color: string | null
+          default_credits: number
+          created_by: string | null
           created_at: string
         }
         Insert: {
           id?: string
+          squad_id?: string | null
+          master_term_id?: string | null
           code: string
           name: string
-          title?: string | null
-          description?: string | null
+          color?: string | null
+          default_credits?: number
+          created_by?: string | null
           created_at?: string
         }
         Update: {
           id?: string
+          squad_id?: string | null
+          master_term_id?: string | null
           code?: string
           name?: string
-          title?: string | null
-          description?: string | null
+          color?: string | null
+          default_credits?: number
+          created_by?: string | null
           created_at?: string
         }
         Relationships: []
