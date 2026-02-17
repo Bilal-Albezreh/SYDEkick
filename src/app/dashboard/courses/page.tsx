@@ -3,10 +3,12 @@ import CourseManagerPanel from "@/components/courses/CourseManagerPanel";
 import AddCourseButton from "@/components/dashboard/AddCourseButton";
 import SyllabusImportButton from "@/components/dashboard/SyllabusImportButton";
 import EmptyCoursesState from "@/components/courses/EmptyCoursesState";
+import CourseDashboardOverview from "@/components/dashboard/courses/CourseDashboardOverview";
 import TermSelector from "@/components/TermSelector";
 import { getTerms } from "@/app/actions/terms";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { LayoutGrid } from "lucide-react";
 
 export default async function CoursesPage({
     searchParams,
@@ -35,7 +37,7 @@ export default async function CoursesPage({
     // Fetch courses filtered by term_id
     const coursesQuery = supabase
         .from("courses")
-        .select("id, course_code, course_name, color, credits, term_id")
+        .select("id, course_code, course_name, color, credits, term_id, assessments(id, name, due_date, weight, is_completed, score, total_marks)")
         .eq("user_id", user.id)
         .order("course_code", { ascending: true });
 
@@ -79,6 +81,26 @@ export default async function CoursesPage({
                             </span>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                            {/* MISSION CONTROL BUTTON */}
+                            <Link
+                                href={`/dashboard/courses${activeTermId ? `?term_id=${activeTermId}` : ""}`}
+                                className={`
+                                    w-full flex items-center justify-between p-3 rounded-lg text-left transition-all border-l-4 group
+                                    ${!selectedCourseId
+                                        ? "border-indigo-500 bg-gradient-to-r from-indigo-500/10 to-transparent text-white"
+                                        : "border-transparent hover:bg-white/5 text-gray-400 hover:text-white"
+                                    }
+                                `}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <LayoutGrid className={`w-5 h-5 ${!selectedCourseId ? "text-indigo-400" : "text-gray-500 group-hover:text-white"}`} />
+                                    <div className="font-bold text-sm">Mission Control</div>
+                                </div>
+                            </Link>
+
+                            {/* SEPARATOR */}
+                            <div className="my-2 border-b border-white/5 mx-2" />
+
                             {courses && courses.length > 0 && (
                                 courses.map((course) => {
                                     const isSelected = selectedCourseId === course.id;
@@ -118,12 +140,7 @@ export default async function CoursesPage({
                         {selectedCourseId ? (
                             <CourseManagerPanel courseId={selectedCourseId} />
                         ) : (
-                            <div className="h-full flex items-center justify-center bg-black/30 backdrop-blur-md border border-white/10 rounded-xl">
-                                <div className="text-center text-gray-400">
-                                    <p className="text-lg mb-2">Select a course to manage</p>
-                                    <p className="text-sm text-gray-600">Click a course from the sidebar to edit its details</p>
-                                </div>
-                            </div>
+                            <CourseDashboardOverview courses={courses as any} />
                         )}
                     </div>
                 </div>

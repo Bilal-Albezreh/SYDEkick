@@ -24,12 +24,12 @@ export default async function LockedPage() {
       <div className="w-20 h-20 bg-red-900/10 rounded-full flex items-center justify-center mb-6 border border-red-900/30">
         <Lock className="w-10 h-10 text-red-500" />
       </div>
-      
+
       <h1 className="text-2xl font-bold text-white mb-2">Access Restricted</h1>
       <p className="text-gray-400 max-w-md mb-8 leading-relaxed">
-        Your account is currently pending administrator approval.
+        Your account is currently pending administrator approval For Beta Testing.
         <br />
-        Please contact Bilal for clearance.
+        We will notify you once approved.
       </p>
 
       <div className="flex flex-col gap-4 w-full max-w-xs">
