@@ -101,7 +101,8 @@ export async function createCourseFromSyllabus(data: SyllabusData) {
                 user_id: user.id,
                 course_id: newCourse.id,
                 name: a.name,
-                type: a.type || "Assignment", // User provided type or default
+                type: a.type || ((a.name.toLowerCase().includes('exam') || a.name.toLowerCase().includes('midterm')) ? "Exam" :
+                    (a.name.toLowerCase().includes('quiz') ? "Quiz" : "Assignment")), // User provided type or name-based default
                 weight: typeof a.weight === 'number' ? a.weight : 0,
                 total_marks: 100,
                 due_date: a.date ? new Date(a.date).toISOString() : null,

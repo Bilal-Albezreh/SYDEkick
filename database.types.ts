@@ -21,6 +21,11 @@ export interface Database {
           is_approved: boolean
           is_anonymous: boolean
           is_participating: boolean
+          // NEW COLUMNS
+          weekly_focus_minutes: number
+          xp: number
+          leaderboard_privacy: "public" | "private" | "masked"
+          display_name: string | null
           created_at: string
           updated_at: string
         }
@@ -35,6 +40,10 @@ export interface Database {
           is_approved?: boolean
           is_anonymous?: boolean
           is_participating?: boolean
+          weekly_focus_minutes?: number
+          xp?: number
+          leaderboard_privacy?: "public" | "private" | "masked"
+          display_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -49,6 +58,10 @@ export interface Database {
           is_approved?: boolean
           is_anonymous?: boolean
           is_participating?: boolean
+          weekly_focus_minutes?: number
+          xp?: number
+          leaderboard_privacy?: "public" | "private" | "masked"
+          display_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -56,14 +69,12 @@ export interface Database {
           {
             foreignKeyName: "profiles_university_id_fkey"
             columns: ["university_id"]
-            isOneToOne: false
             referencedRelation: "universities"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "profiles_program_id_fkey"
             columns: ["program_id"]
-            isOneToOne: false
             referencedRelation: "programs"
             referencedColumns: ["id"]
           }
@@ -107,8 +118,7 @@ export interface Database {
           {
             foreignKeyName: "terms_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users" // usually auth.users but here likely just user_id or ignored in types
+            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]
@@ -151,7 +161,6 @@ export interface Database {
           {
             foreignKeyName: "courses_term_id_fkey"
             columns: ["term_id"]
-            isOneToOne: false
             referencedRelation: "terms"
             referencedColumns: ["id"]
           }
@@ -204,12 +213,206 @@ export interface Database {
           {
             foreignKeyName: "assessments_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           }
         ]
       }
+
+      // --- ADDED TABLES ---
+
+      focus_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          duration: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          duration: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          duration?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+
+      messages: {
+        Row: {
+          id: string
+          content: string
+          user_id: string
+          squad_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          content: string
+          user_id: string
+          squad_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          content?: string
+          user_id?: string
+          squad_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+
+      squads: {
+        Row: {
+          id: string
+          name: string
+          owner_id: string
+          invite_code: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          owner_id: string
+          invite_code?: string
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          owner_id?: string
+          invite_code?: string
+          description?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+
+      squad_memberships: {
+        Row: {
+          user_id: string
+          squad_id: string
+          role: "leader" | "member"
+          joined_at: string
+        }
+        Insert: {
+          user_id: string
+          squad_id: string
+          role?: "leader" | "member"
+          joined_at?: string
+        }
+        Update: {
+          user_id?: string
+          squad_id?: string
+          role?: "leader" | "member"
+          joined_at?: string
+        }
+        Relationships: []
+      }
+
+      squad_templates: {
+        Row: {
+          id: string
+          squad_id: string
+          master_course_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          squad_id: string
+          master_course_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          squad_id?: string
+          master_course_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+
+      waitlist: {
+        Row: {
+          id: string
+          email: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+
+      preferences: {
+        Row: {
+          id: string
+          user_id: string
+          active_term_id: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          active_term_id?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          active_term_id?: string | null
+        }
+        Relationships: []
+      }
+
+      user_task_states: {
+        Row: {
+          id: string
+          user_id: string
+          task_id: string
+          status: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          task_id: string
+          status?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          task_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+
+      master_calendar_view: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          due_date: string | null
+          course_id: string
+          type: string
+          weight: number
+        }
+        Relationships: []
+      }
+
       master_courses: {
         Row: {
           id: string
@@ -272,7 +475,6 @@ export interface Database {
           {
             foreignKeyName: "master_assessments_master_course_id_fkey"
             columns: ["master_course_id"]
-            isOneToOne: false
             referencedRelation: "master_courses"
             referencedColumns: ["id"]
           }
@@ -319,7 +521,6 @@ export interface Database {
           {
             foreignKeyName: "programs_university_id_fkey"
             columns: ["university_id"]
-            isOneToOne: false
             referencedRelation: "universities"
             referencedColumns: ["id"]
           }
@@ -366,7 +567,6 @@ export interface Database {
           {
             foreignKeyName: "personal_tasks_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           }
@@ -413,12 +613,11 @@ export interface Database {
           {
             foreignKeyName: "schedule_items_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           }
         ]
-      },
+      }
       career_stats: {
         Row: {
           user_id: string
@@ -454,7 +653,7 @@ export interface Database {
           updated_at?: string
         }
         Relationships: []
-      },
+      }
       interviews: {
         Row: {
           id: string
@@ -592,6 +791,9 @@ export type PersonalTaskUpdate = Database["public"]["Tables"]["personal_tasks"][
 export type ScheduleItemRow = Database["public"]["Tables"]["schedule_items"]["Row"];
 export type ScheduleItemInsert = Database["public"]["Tables"]["schedule_items"]["Insert"];
 export type ScheduleItemUpdate = Database["public"]["Tables"]["schedule_items"]["Update"];
+
+export type AssessmentRow = Database["public"]["Tables"]["assessments"]["Row"];
+export type CourseRow = Database["public"]["Tables"]["courses"]["Row"];
 
 export interface ScheduleItemWithCourse extends ScheduleItemRow {
   course?: {

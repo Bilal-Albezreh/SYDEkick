@@ -257,6 +257,8 @@ export async function updateCourseAssessments(
                 total_marks: a.total_marks,
                 due_date: a.due_date || null,
                 score: null,
+                type: (a.name.toLowerCase().includes('exam') || a.name.toLowerCase().includes('midterm')) ? 'Exam' :
+                    (a.name.toLowerCase().includes('quiz')) ? 'Quiz' : 'Assignment',
             }));
 
             console.log("Inserting assessments:", JSON.stringify(assessmentsToInsert, null, 2));
@@ -282,7 +284,7 @@ export async function updateCourseAssessments(
                         total_marks: assessment.total_marks,
                         due_date: assessment.due_date || null,
                     })
-                    .eq("id", assessment.id)
+                    .eq("id", assessment.id!)
                     .eq("course_id", courseId);
 
                 if (updateError) {
