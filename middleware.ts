@@ -143,12 +143,30 @@ export async function middleware(request: NextRequest) {
   // ====================================================================
   // PUBLIC ROUTES: Allow unauthenticated access to these paths
   // ====================================================================
-  const publicRoutes = ["/", "/login", "/auth/callback", "/locked"];
+  const publicRoutes = ["/", "/login", "/auth/callback", "/locked", "/pending", "/wizard"];
+
+  // /wizard is always accessible (it does its own auth check server-side)
+  if (path === "/wizard") {
+    return response;
+  }
 
   if (publicRoutes.includes(path)) {
-    // If logged in and trying to access the landing page or login, redirect to dashboard
+    // If logged in and on the landing page or login, figure out where to send them
     if (session && (path === "/" || path === "/login")) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      // Check if they've completed onboarding (have at least one term)
+      const { data: terms } = await supabase
+        .from("terms")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .limit(1);
+
+      if (terms && terms.length > 0) {
+        // Onboarding complete → dashboard
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      } else {
+        // Needs onboarding → wizard
+        return NextResponse.redirect(new URL("/wizard", request.url));
+      }
     }
     // Allow public access
     return response;

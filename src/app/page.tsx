@@ -1,7 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
 import {
   Calendar,
   TrendingUp,
@@ -15,36 +13,10 @@ import FeatureStack from "@/components/FeatureStack";
 import MorphNav from "@/components/landing/MorphNav";
 import AuroraBackground from "@/components/landing/AuroraBackground";
 import TrustedBy from "@/components/landing/TrustedBy";
-import SetupWizard from "@/components/onboarding/SetupWizard";
 
 export default async function Home() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Check if user is logged in AND has completed onboarding
-  let needsOnboarding = false;
-  if (user) {
-    // Check if user has at least one term (indicates they've completed setup)
-    const { data: userTerms } = await supabase
-      .from("terms")
-      .select("id")
-      .eq("user_id", user.id)
-      .limit(1);
-
-    if (userTerms && userTerms.length > 0) {
-      // User has completed onboarding, go to dashboard
-      redirect("/dashboard");
-    } else {
-      // User is logged in but hasn't completed setup
-      needsOnboarding = true;
-    }
-  }
-
-
-  // Show SetupWizard for new users who need onboarding
-  if (needsOnboarding) {
-    return <SetupWizard />;
-  }
+  // Middleware handles redirecting logged-in users to /dashboard or /wizard
+  // This page is only shown to unauthenticated visitors
 
   // Landing page for non-authenticated users
   return (
