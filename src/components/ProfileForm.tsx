@@ -14,24 +14,24 @@ interface ProfileProps {
     email: string;
   };
   profile: {
-    full_name: string;
+    full_name: string | null;
     is_anonymous: boolean;
     avatar_url: string | null;
     is_participating: boolean;
-  };
+  } | null;
   academicSettings?: React.ReactNode;
 }
 
 export default function ProfileForm({ user, profile, academicSettings }: ProfileProps) {
   // --- STATE: PROFILE & AVATAR ---
-  const [name, setName] = useState(profile.full_name || "");
-  const [isAnon, setIsAnon] = useState(profile.is_anonymous);
-  const [isParticipating, setIsParticipating] = useState(profile.is_participating ?? true);
+  const [name, setName] = useState(profile?.full_name || "");
+  const [isAnon, setIsAnon] = useState(profile?.is_anonymous ?? false);
+  const [isParticipating, setIsParticipating] = useState(profile?.is_participating ?? true);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
 
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url ?? null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

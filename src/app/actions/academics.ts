@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import type { Database } from "@/types/supabase";
 
 /**
  * Phase 2.3: Fork Term - Clone a Master Term into User's Dashboard
@@ -181,7 +182,7 @@ export async function setupUserTerm(
         const masterCourseIds = masterCourses.map(c => c.id);
         const { data: masterAssessments, error: assessmentsError } = await supabase
             .from("master_assessments")
-            .select("master_course_id, title, weight, default_due_offset_days, type, total_marks")
+            .select("master_course_id, title, weight, default_due_offset_days, description")
             .in("master_course_id", masterCourseIds);
 
         if (assessmentsError) {
@@ -202,15 +203,15 @@ export async function setupUserTerm(
 
                 // Calculate due date: startDate + offset_days
                 const dueDate = new Date(startDate);
-                dueDate.setDate(dueDate.getDate() + assessment.default_due_offset_days);
+                dueDate.setDate(dueDate.getDate() + (assessment.default_due_offset_days ?? 0));
 
                 return {
                     user_id: user.id,
                     course_id: userCourseId,
                     name: assessment.title,
                     weight: assessment.weight,
-                    total_marks: assessment.total_marks || 100,
-                    type: assessment.type || 'Assignment',
+                    total_marks: 100,
+                    type: 'Assignment',
                     due_date: dueDate.toISOString().split('T')[0] + 'T12:00:00Z', // Noon UTC
                     is_completed: false,
                     score: null,

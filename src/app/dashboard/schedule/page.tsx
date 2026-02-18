@@ -5,12 +5,12 @@ import ScheduleClient from "./ScheduleClient";
 export default async function SchedulePage() {
     // Fetch schedule items with course data
     const scheduleResult = await getScheduleItems();
-    
+
     // Fetch user's courses for the "Add Class" modal
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    
-    let courses = [];
+
+    let courses: { id: string; course_code: string; course_name: string; color: string;[key: string]: unknown }[] = [];
     if (user) {
         const { data } = await supabase
             .from("courses")

@@ -343,7 +343,7 @@ export async function getMySquads() {
         // Combine membership role with squad data
         const squadWithRole = {
             ...squad,
-            my_role: membership.role,
+            my_role: membership.role as 'leader' | 'member',
             joined_at: membership.joined_at,
         };
 
@@ -525,7 +525,6 @@ export async function createSquadWithCurriculum({
                         master_course_id: masterCourse.id,
                         title: assessment.name,
                         weight: assessment.weight,
-                        description: assessment.description || null
                     }));
 
                     if (masterAssessments.length > 0) {

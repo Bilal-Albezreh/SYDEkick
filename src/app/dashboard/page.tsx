@@ -154,7 +154,7 @@ export default async function DashboardPage() {
       },
       type: t.type || "personal"
     }))
-  ].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+  ].sort((a, b) => new Date(a.due_date ?? '').getTime() - new Date(b.due_date ?? '').getTime());
 
   console.log("🔍 DEBUG: Mapped Courses:", mappedCourses);
   console.log("🔍 DEBUG: Mapped Upcoming:", mappedUpcoming.length);
@@ -185,7 +185,7 @@ export default async function DashboardPage() {
   allAssessments?.forEach((a) => {
     if (!userAverages.has(a.user_id)) userAverages.set(a.user_id, { earned: 0, attempted: 0 });
     const u = userAverages.get(a.user_id)!;
-    u.earned += (a.score / 100) * a.weight;
+    u.earned += ((a.score ?? 0) / 100) * a.weight;
     u.attempted += a.weight;
   });
 

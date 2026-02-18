@@ -62,6 +62,7 @@ export default function CourseDetailView({ course }: CourseDetailViewProps) {
             const result = await createAssessment(
                 course.id,
                 newName.trim(),
+                'Assignment',
                 weight,
                 total,
                 newDate || undefined

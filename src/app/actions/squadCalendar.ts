@@ -82,7 +82,7 @@ export async function getMyCalendar(range?: DateRange) {
 
         return {
             success: true,
-            items: items as CalendarItem[] || []
+            items: (items as unknown as CalendarItem[]) || []
         };
 
     } catch (error: any) {

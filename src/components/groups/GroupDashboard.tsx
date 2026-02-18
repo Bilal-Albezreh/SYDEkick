@@ -27,11 +27,16 @@ interface GroupMember {
 interface Group {
     id: string;
     name: string;
-    description?: string;
-    program?: string;
-    term?: string;
+    description?: string | null;
+    program?: string | null;
+    term?: string | null;
     invite_code: string;
     my_role: 'leader' | 'member';
+    joined_at?: string;
+    owner_id?: string;
+    is_official?: boolean;
+    created_at?: string;
+    updated_at?: string;
     members?: GroupMember[];
 }
 

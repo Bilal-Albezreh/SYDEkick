@@ -114,7 +114,7 @@ export default function SetupWizard() {
             const { data, error } = await supabase
                 .from("programs")
                 .select("id, name, university_id")
-                .eq("university_id", selectedUniversity)
+                .eq("university_id", selectedUniversity!)
                 .order("name");
 
             if (error) {

@@ -231,8 +231,9 @@ export async function seedCourses(force: boolean = false) {
         user_id: user.id,
         term_id: termId, // ✅ NOW LINKED TO TERM
         course_code: course.course_code,
-        name: course.name,
+        course_name: course.course_name,
         color: course.color,
+        credits: 0.5,
       })
       .select()
       .single();
@@ -249,6 +250,8 @@ export async function seedCourses(force: boolean = false) {
         course_id: courseData.id,
         name: a.name,
         weight: a.weight,
+        total_marks: 100,
+        type: 'Assignment',
         due_date: a.due_date,
         score: null,
         is_completed: false,

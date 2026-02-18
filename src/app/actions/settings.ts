@@ -70,8 +70,8 @@ export async function updateAcademicProfile(
                     user_id: user.id,
                     label: termLabel,
                     season: `${termLabel} Term`, // Placeholder
-                    start_date: null, // Leave as null
-                    end_date: null,   // Leave as null
+                    start_date: '2000-01-01', // Placeholder - user can update later
+                    end_date: '2000-12-31',   // Placeholder - user can update later
                     is_current: true
                 });
 

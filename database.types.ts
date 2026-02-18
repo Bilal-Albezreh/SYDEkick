@@ -60,7 +60,7 @@ export interface Database {
           is_participating?: boolean
           weekly_focus_minutes?: number
           xp?: number
-          leaderboard_privacy?: "public" | "private" | "masked"
+          leaderboard_privacy?: string | null
           display_name?: string | null
           created_at?: string
           updated_at?: string
