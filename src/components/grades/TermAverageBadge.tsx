@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import CountUp from "@/components/ui/CountUp";
 
 interface TermAverageBadgeProps {
     variant: "hero" | "docked";
@@ -11,7 +12,7 @@ interface TermAverageBadgeProps {
 export default function TermAverageBadge({ variant, average, hasData }: TermAverageBadgeProps) {
     if (!hasData) return null;
 
-    const glowColor = average >= 80 ? "#22c55e" : average >= 70 ? "#eab308" : "#ef4444";
+    const color = average >= 80 ? "#00E676" : average >= 70 ? "#FFC107" : "#FF3B30";
 
     const formatted = average.toLocaleString(undefined, {
         minimumFractionDigits: 0,
@@ -23,31 +24,42 @@ export default function TermAverageBadge({ variant, average, hasData }: TermAver
             <motion.div
                 layoutId="term-avg-badge"
                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                style={{
-                    background: `radial-gradient(circle at 8% 50%, ${glowColor}30 0%, transparent 60%)`,
-                    boxShadow: `0 0 0 1px ${glowColor}25, 0 0 40px -12px ${glowColor}33`,
-                }}
-                className="flex items-center gap-5 px-7 py-5 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl overflow-hidden relative"
+                className="relative w-full"
             >
-                {/* Large glowing dot */}
+                {/* Layer 1: Hollow masked animated border */}
                 <div
+                    className="absolute inset-0 z-0 pointer-events-none rounded-3xl overflow-hidden"
                     style={{
-                        backgroundColor: glowColor,
-                        boxShadow: `0 0 16px 5px ${glowColor}88, 0 0 40px 10px ${glowColor}33`,
+                        padding: "2px",
+                        WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+                        WebkitMaskComposite: "xor",
+                        maskComposite: "exclude",
                     }}
-                    className="w-4 h-4 rounded-full flex-shrink-0"
-                />
+                >
+                    <div
+                        className="absolute inset-[-100%] animate-[spin_4s_linear_infinite]"
+                        style={{
+                            background: `conic-gradient(from 0deg, transparent 60%, ${color} 90%, transparent 100%)`,
+                        }}
+                    />
+                </div>
 
-                <div className="flex flex-col">
-                    <span className="text-[11px] uppercase tracking-widest text-white/35 font-semibold leading-none mb-1.5">
+                {/* Layer 2: Glass card */}
+                <div className="relative z-10 flex flex-col items-center justify-center py-10 px-8 rounded-3xl bg-white/[0.03] backdrop-blur-2xl border border-white/5">
+                    <span className="text-xs sm:text-sm font-bold tracking-[0.2em] text-white/50 mb-2 uppercase">
                         Term Average
                     </span>
-                    <span
-                        style={{ color: glowColor, textShadow: `0 0 30px ${glowColor}66` }}
-                        className="text-4xl font-black tabular-nums tracking-tighter leading-none"
-                    >
-                        {formatted}%
-                    </span>
+                    <div className="flex items-baseline">
+                        <CountUp
+                            to={average}
+                            duration={2.5}
+                            decimals={2}
+                            startWhen={true}
+                            className="text-6xl sm:text-7xl font-mono font-extrabold text-white tabular-nums tracking-tighter"
+                            style={{ textShadow: "0 4px 20px rgba(255,255,255,0.2)" }}
+                        />
+                        <span className="text-6xl sm:text-7xl font-mono font-extrabold text-white" style={{ textShadow: "0 4px 20px rgba(255,255,255,0.2)" }}>%</span>
+                    </div>
                 </div>
             </motion.div>
         );
@@ -58,29 +70,48 @@ export default function TermAverageBadge({ variant, average, hasData }: TermAver
         <motion.div
             layoutId="term-avg-badge"
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            style={{
-                background: `radial-gradient(circle at 0% 50%, ${glowColor}22 0%, transparent 70%)`,
-                boxShadow: `0 0 0 1px ${glowColor}18`,
-            }}
-            className="flex items-center gap-3 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-md overflow-hidden relative"
+            className="relative"
         >
-            {/* Small glowing dot */}
+            {/* Layer 1: Hollow masked animated border */}
             <div
+                className="absolute inset-0 z-0 pointer-events-none rounded-full overflow-hidden"
                 style={{
-                    backgroundColor: glowColor,
-                    boxShadow: `0 0 10px 3px ${glowColor}99, 0 0 20px 6px ${glowColor}44`,
+                    padding: "2px",
+                    WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+                    WebkitMaskComposite: "xor",
+                    maskComposite: "exclude",
                 }}
-                className="w-2 h-2 rounded-full flex-shrink-0"
-            />
-            <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">
-                Term Avg
-            </span>
-            <span
-                style={{ color: glowColor, textShadow: `0 0 16px ${glowColor}88` }}
-                className="text-lg font-mono font-bold tracking-tight"
             >
-                {formatted}%
-            </span>
+                <div
+                    className="absolute inset-[-100%] animate-[spin_4s_linear_infinite]"
+                    style={{
+                        background: `conic-gradient(from 0deg, transparent 60%, ${color} 90%, transparent 100%)`,
+                    }}
+                />
+            </div>
+
+            {/* Layer 2: Glass pill */}
+            <div className="relative z-10 flex items-center gap-3 py-2 px-5 rounded-full bg-white/[0.03] backdrop-blur-2xl border border-white/5">
+                {/* Pulsing color dot */}
+                <div
+                    style={{ backgroundColor: color, boxShadow: `0 0 8px 2px ${color}` }}
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse"
+                />
+                <span className="text-[10px] font-bold tracking-[0.2em] text-white/50 uppercase">
+                    Term Avg
+                </span>
+                <div className="flex items-baseline gap-0.5">
+                    <CountUp
+                        to={average}
+                        duration={2.5}
+                        decimals={2}
+                        startWhen={true}
+                        className="text-xl font-mono font-bold text-white tabular-nums"
+                        style={{ textShadow: "0 2px 10px rgba(255,255,255,0.2)" }}
+                    />
+                    <span className="text-xl font-mono font-bold text-white" style={{ textShadow: "0 2px 10px rgba(255,255,255,0.2)" }}>%</span>
+                </div>
+            </div>
         </motion.div>
     );
 }

@@ -3,13 +3,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { updateAssessmentScore } from "@/app/actions/index";
-import { Loader2, RotateCcw, BarChart3, X } from "lucide-react";
+import { Loader2, RotateCcw, BarChart3, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from "recharts";
 import { LayoutGroup } from "framer-motion";
 import TermAverageBadge from "@/components/grades/TermAverageBadge";
+import CountUp from "@/components/ui/CountUp";
 
 // --- RULES ENGINE CONFIGURATION ---
 const COURSE_RULES: Record<string, any[]> = {
@@ -43,7 +44,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
   // 1. Initialize State
   const [courses, setCourses] = useState<any[]>(initialData || []);
   const [selectedCourseId, setSelectedCourseId] = useState<string>(initialData?.[0]?.id || "");
-  const [viewMode, setViewMode] = useState<"overview" | "detail">("detail");
+  const [viewMode, setViewMode] = useState<"overview" | "detail">("overview");
   const [isHypothetical, setIsHypothetical] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [selectedSimCourse, setSelectedSimCourse] = useState<string | null>(null);
@@ -444,16 +445,10 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                   return (
                     <div
                       style={{
-                        '--sim-color': simCourse.color || '#6366f1',
-                        backgroundImage: `
-                          linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
-                          linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px)
-                        `,
-                        backgroundSize: '24px 24px',
-                        backgroundColor: 'rgba(255,255,255,0.03)',
-                        boxShadow: `0 0 50px -15px ${simCourse.color || '#6366f1'}30`,
-                      } as React.CSSProperties}
-                      className="mt-6 backdrop-blur-md border border-white/10 rounded-2xl p-6 relative animate-in fade-in slide-in-from-bottom-4 duration-300"
+                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                        boxShadow: `0 8px 32px -12px ${simCourse.color || '#6366f1'}`,
+                      }}
+                      className="mt-6 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative animate-in fade-in slide-in-from-bottom-4 duration-300"
                     >
                       {/* Color Bleed — radial glow from top edge */}
                       <div
@@ -462,13 +457,23 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                           background: `radial-gradient(ellipse at top, color-mix(in srgb, ${simCourse.color || '#6366f1'} 20%, transparent), transparent 70%)`,
                         }}
                       />
-                      {/* Close button */}
-                      <button
-                        onClick={() => setSelectedSimCourse(null)}
-                        className="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Top-right actions */}
+                      <div className="absolute top-4 right-4 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedCourseId(simCourse.id); setViewMode("detail"); setSelectedSimCourse(null); }}
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/15 transition-colors text-xs font-semibold text-white/70 hover:text-white"
+                        >
+                          Go to Course
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedSimCourse(null)}
+                          className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
                       {/* Header */}
                       <div className="mb-5">
@@ -578,25 +583,24 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                         <div className="bg-black/30 border border-white/5 rounded-xl p-4">
                           <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Projected Course Grade</div>
                           <div
-                            className="text-3xl font-black tabular-nums"
+                            className="flex items-baseline text-3xl font-black tabular-nums"
                             style={{
                               color: projectedCourseGrade >= 80 ? '#22c55e' : projectedCourseGrade >= 50 ? '#eab308' : '#ef4444',
                               textShadow: `0 0 20px ${projectedCourseGrade >= 80 ? '#22c55e' : projectedCourseGrade >= 50 ? '#eab308' : '#ef4444'}66`,
                             }}
                           >
-                            {formatNum(projectedCourseGrade)}%
+                            <CountUp from={0} to={projectedCourseGrade} duration={0.8} decimals={2} startWhen={true} />
+                            <span>%</span>
                           </div>
                         </div>
                         <div className="bg-black/30 border border-white/5 rounded-xl p-4">
                           <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Projected Term Avg</div>
                           <div
-                            className="text-3xl font-black tabular-nums"
-                            style={{
-                              color: gpaGlowColor,
-                              textShadow: `0 0 20px ${gpaGlowColor}66`,
-                            }}
+                            className="flex items-baseline text-3xl font-black tabular-nums"
+                            style={{ color: gpaGlowColor, textShadow: `0 0 20px ${gpaGlowColor}66` }}
                           >
-                            {formatNum(projectedTermAvg)}%
+                            <CountUp from={0} to={projectedTermAvg} duration={0.8} decimals={2} startWhen={true} />
+                            <span>%</span>
                           </div>
                           <div className="text-xs font-mono mt-1" style={{ color: gpaGlowColor }}>
                             {gpaDelta >= 0 ? '▲' : '▼'} {formatNum(Math.abs(gpaDelta))}%
