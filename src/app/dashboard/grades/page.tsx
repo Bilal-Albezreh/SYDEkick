@@ -37,7 +37,6 @@ export default async function GradesPage({
     .eq("user_id", user.id)
     .order("course_code", { ascending: true });
 
-  // Only filter by term if we have a valid term_id
   if (activeTermId) {
     coursesQuery.eq("term_id", activeTermId);
   }
@@ -45,24 +44,27 @@ export default async function GradesPage({
   const { data: courses } = await coursesQuery;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full min-h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex flex-col gap-4 mb-8">
-        <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white tracking-tight">Academic Performance</h1>
             <p className="text-gray-500">
               Simulate your academic performance and track progress.
             </p>
           </div>
+
           {terms.length > 0 && activeTermId && (
             <TermSelector terms={terms} currentTermId={activeTermId} />
           )}
         </div>
       </div>
 
-      {/* Grade Calculator */}
-      <GradeCalculator initialData={courses || []} />
+      {/* Grade Calculator — flex-1 to fill remaining space */}
+      <div className="flex-1 min-h-0">
+        <GradeCalculator initialData={courses || []} />
+      </div>
     </div>
   );
 }
