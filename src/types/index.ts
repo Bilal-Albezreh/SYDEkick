@@ -61,3 +61,28 @@ export interface PersonalTask {
   created_at: string;
   updated_at?: string;
 }
+
+/** A user-created task list (folder) */
+export interface TaskList {
+  id: string;
+  user_id: string;
+  name: string;
+  color_hex: string;
+  created_at: string;
+}
+
+/** A single task belonging to a task list */
+export interface Task {
+  id: string;
+  user_id: string;
+  list_id: string;
+  title: string;
+  description: string | null;
+  is_completed: boolean;
+  due_date: string | null;
+  priority: "low" | "medium" | "high";
+  course_id: string | null;
+  notes: string | null;
+  position: number;
+  created_at: string;
+}

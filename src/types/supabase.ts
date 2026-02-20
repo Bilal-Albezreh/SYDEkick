@@ -808,6 +808,88 @@ export interface Database {
         }
         Relationships: []
       }
+      task_lists: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          color_hex: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          color_hex?: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          color_hex?: string
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          id: string
+          user_id: string
+          list_id: string
+          title: string
+          description: string | null
+          is_completed: boolean
+          due_date: string | null
+          priority: string
+          position: number
+          course_id: string | null
+          notes: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          list_id: string
+          title: string
+          description?: string | null
+          is_completed?: boolean
+          due_date?: string | null
+          priority?: string
+          position?: number
+          course_id?: string | null
+          notes?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          list_id?: string
+          title?: string
+          description?: string | null
+          is_completed?: boolean
+          due_date?: string | null
+          priority?: string
+          position?: number
+          course_id?: string | null
+          notes?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_list_id_fkey"
+            columns: ["list_id"]
+            referencedRelation: "task_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_course_id_fkey"
+            columns: ["course_id"]
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

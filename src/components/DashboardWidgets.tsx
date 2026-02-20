@@ -15,6 +15,19 @@ import { cn } from "@/lib/utils";
 import { format, differenceInCalendarDays, startOfDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+const GridOverlay = () => (
+  <div
+    className="absolute inset-0 pointer-events-none z-10"
+    style={{
+      backgroundImage:
+        "linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)",
+      backgroundSize: "24px 24px",
+      maskImage: "linear-gradient(to bottom, black, transparent)",
+      WebkitMaskImage: "linear-gradient(to bottom, black, transparent)"
+    }}
+  />
+);
+
 // --- WIDGET 1: DAILY QUOTE ---
 export function QuoteWidget() {
   const quotes = [
@@ -35,6 +48,7 @@ export function QuoteWidget() {
 
   return (
     <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 relative overflow-hidden h-full flex flex-col justify-center shadow-lg hover:bg-black/40 transition-colors duration-300">
+      <GridOverlay />
       <Quote className="absolute top-4 left-4 w-8 h-8 text-indigo-400/20" />
       <div className="relative z-10">
         <h3 className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-3">Daily Insight</h3>
@@ -72,8 +86,8 @@ export function CountdownWidget() {
   const prevSlide = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
 
   return (
-    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 flex flex-col justify-between h-full relative overflow-hidden group hover:bg-black/40 transition-colors duration-300">
-
+    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 flex flex-col justify-between h-full relative overflow-hidden group hover:bg-black/40 transition-colors duration-300 text-white">
+      <GridOverlay />
       {/* Navigation Arrows (Show on Hover) */}
       {currentIndex > 0 && (
         <button onClick={prevSlide} className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/60 text-white rounded-full z-20 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black">
@@ -204,8 +218,9 @@ export function UpcomingWidget({ data }: { data: any[] }) {
 
   return (
     <>
-      <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 h-full flex flex-col hover:bg-black/40 transition-colors duration-300">
-        <div className="flex items-center justify-between mb-4 shrink-0">
+      <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 h-full flex flex-col relative overflow-hidden hover:bg-black/40 transition-colors duration-300">
+        <GridOverlay />
+        <div className="flex items-center justify-between mb-4 shrink-0 relative z-20">
           <div className="flex items-center gap-2 text-gray-500">
             <CalendarDays className="w-4 h-4" />
             <span className="text-xs font-bold uppercase tracking-widest">Next 7 Days</span>
@@ -216,7 +231,7 @@ export function UpcomingWidget({ data }: { data: any[] }) {
         </div>
 
         {/* Scrollable container for many items */}
-        <div className="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+        <div className="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar relative z-20">
           {sorted && sorted.length > 0 ? (
             sorted.map((item) => {
               const urgencyClass = getUrgencyStyles(item.due_date);
@@ -294,9 +309,10 @@ export function UpcomingWidget({ data }: { data: any[] }) {
 // --- WIDGET 4: COURSE PROGRESS (AUTO-FIT, NO SCROLL) ---
 export function ProgressWidget({ data }: { data: any[] }) {
   return (
-    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-5 h-full flex flex-col min-h-0 hover:bg-black/40 transition-colors duration-300">
+    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-5 h-full flex flex-col min-h-0 relative overflow-hidden hover:bg-black/40 transition-colors duration-300">
+      <GridOverlay />
       {/* Header */}
-      <div className="flex items-center gap-2 text-gray-500 mb-2 shrink-0">
+      <div className="flex items-center gap-2 text-gray-500 mb-2 shrink-0 relative z-20">
         <CheckCircle2 className="w-4 h-4" />
         <span className="text-xs font-bold uppercase tracking-widest">Term Progress</span>
       </div>
@@ -305,7 +321,7 @@ export function ProgressWidget({ data }: { data: any[] }) {
          This forces the courses to spread out and fill the available vertical space 
          without ever creating a scrollbar.
       */}
-      <div className="flex-1 flex flex-col justify-between min-h-0 pt-2 pb-1">
+      <div className="flex-1 flex flex-col justify-between min-h-0 pt-2 pb-1 relative z-20">
         {data && data.length > 0 ? (
           data.map((course) => (
             <div key={course.id || course.course_code} className="w-full">
@@ -353,6 +369,7 @@ export function RankWidget({ myRank, topRank }: RankWidgetProps) {
   if (!myRank) {
     return (
       <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden h-full">
+        <GridOverlay />
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <Ghost className="w-24 h-24 text-gray-500" />
         </div>
@@ -375,6 +392,7 @@ export function RankWidget({ myRank, topRank }: RankWidgetProps) {
 
   return (
     <div className="bg-gradient-to-b from-white/10 to-black/40 backdrop-blur-md border border-white/10 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden h-full group transition-all duration-300 shadow-[0_0_20px_rgba(0,0,0,0.3)]">
+      <GridOverlay />
       {/* Dynamic Background Glow */}
       <div className={cn("absolute top-0 right-0 w-32 h-32 bg-gradient-to-br opacity-20 blur-3xl rounded-full -mr-10 -mt-10",
         isFirst ? "from-yellow-400 to-orange-500" : "from-blue-500 to-purple-500"
@@ -531,10 +549,10 @@ export function ChatWidget({
   };
 
   return (
-    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl flex flex-col h-full overflow-hidden shadow-2xl">
-
+    <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl flex flex-col h-full relative overflow-hidden shadow-2xl">
+      <GridOverlay />
       {/* HEADER */}
-      <div className="px-5 py-3 border-b border-white/5 bg-black/20 flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-white/5 bg-black/20 flex items-center justify-between relative z-20">
         <h3 className="font-bold text-gray-200 text-xs uppercase tracking-widest flex items-center gap-2">
           <MessageSquare className="w-3 h-3 text-green-500" />
           Live Comms
@@ -556,7 +574,7 @@ export function ChatWidget({
       {/* MESSAGES AREA */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 flex flex-col-reverse bg-transparent space-y-reverse space-y-6 min-h-0"
+        className="flex-1 overflow-y-auto p-4 flex flex-col-reverse bg-transparent space-y-reverse space-y-6 min-h-0 relative z-20"
       >
         {messages.length > 0 ? (
           messages.map((msg) => {
@@ -612,7 +630,7 @@ export function ChatWidget({
       </div>
 
       {/* INPUT AREA */}
-      <div className="p-3 bg-black/20 border-t border-white/5">
+      <div className="p-3 bg-black/20 border-t border-white/5 relative z-20">
         <form onSubmit={handleSend} className="relative flex items-center gap-2">
           <input
             className="w-full bg-[#1a1a1a] text-gray-200 text-sm rounded-lg px-4 py-3 border border-gray-800 focus:border-green-500/40 focus:bg-[#202020] focus:outline-none transition-all placeholder:text-gray-600"

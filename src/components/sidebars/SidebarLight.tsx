@@ -19,7 +19,8 @@ import {
     Hourglass,
     FolderOpen,
     PanelLeftClose,
-    PanelLeftOpen
+    PanelLeftOpen,
+    ListTodo
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ export default function SidebarLight() {
         { name: "Courses", href: "/dashboard/courses", icon: FolderOpen },
         { name: "Schedule", href: "/dashboard/schedule", icon: Clock },
         { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
+        { name: "Tasks", href: "/dashboard/tasks", icon: ListTodo },
         { name: "Group", href: "/dashboard/groups", icon: Users },
         { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Trophy },
         { name: "Application Tracker", href: "/dashboard/career", icon: Briefcase },

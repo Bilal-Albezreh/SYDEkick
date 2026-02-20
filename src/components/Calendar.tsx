@@ -15,6 +15,8 @@ import { toggleInterviewComplete } from "@/app/actions/career";
 import { Switch } from "@/components/ui/switch";
 
 import { createPersonalTask, deletePersonalTask, togglePersonalTaskComplete, updatePersonalTaskDate } from "@/app/actions/personalTasks";
+import { toggleTaskComplete, createTask as createNeuralTask, getTaskListsWithTasks } from "@/app/actions/tasks";
+import TaskDetailModal from "@/components/calendar/TaskDetailModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,7 +37,8 @@ const COURSE_TITLES: Record<string, string> = {
     "SYDE 263": "Prototyping",
     "INTERVIEW": "Interview", // [UPDATED]
     "OA": "Online Assessment", // [UPDATED]
-    "PERSONAL": "Personal Task" // [NEW]
+    "PERSONAL": "Personal Task", // [NEW]
+    "NEURAL": "Neural Task" // [NEURAL LINK]
 };
 
 
@@ -67,6 +70,9 @@ const getCourseTheme = (code: string) => {
 
         // [NEW] PERSONAL THEME
         "PERSONAL": "bg-zinc-800/50 border-zinc-500/50 text-gray-200 hover:bg-zinc-800/70 shadow-sm",
+
+        // [NEURAL LINK] Dynamic — uses inline color, this is a fallback
+        "NEURAL": "bg-indigo-900/50 border-indigo-500/50 text-gray-200 hover:bg-indigo-900/70 shadow-sm",
     };
 
     return themes[code] || "bg-gray-900/50 border-gray-800 text-gray-300";
@@ -83,6 +89,7 @@ const getCourseColor = (code: string) => {
         "INTERVIEW": "#eab308", // Gold
         "OA": "#06b6d4", // Cyan-500
         "PERSONAL": "#9ca3af", // Gray-400
+        "NEURAL": "#6366f1", // Indigo (fallback, actual color comes from list)
     };
 
     return colors[code] || "#9ca3af";
@@ -108,9 +115,12 @@ const getAssessmentType = (name: string, type?: string) => {
 const getItemDateKey = (dateInput: string | Date | null | undefined): string | null => {
     if (!dateInput) return null;
 
-    // If it's already a simple date string (YYYY-MM-DD), return as-is
-    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-        return dateInput;
+    if (typeof dateInput === 'string') {
+        // Strip time metadata; use raw YYYY-MM-DD directly
+        const datePart = dateInput.split('T')[0].split(' ')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+            return datePart;
+        }
     }
 
     // For timestamp strings or Date objects, parse carefully
@@ -124,7 +134,7 @@ const getItemDateKey = (dateInput: string | Date | null | undefined): string | n
     return `${year}-${month}-${day}`;
 };
 
-export default function Calendar({ initialData, initialInterviews, initialPersonalTasks }: { initialData: any[], initialInterviews: any[], initialPersonalTasks?: any[] }) {
+export default function Calendar({ initialData, initialInterviews, initialPersonalTasks, initialNeuralTasks, initialTaskLists }: { initialData: any[], initialInterviews: any[], initialPersonalTasks?: any[], initialNeuralTasks?: any[], initialTaskLists?: any[] }) {
     const router = useRouter(); // For refresh
     // 1. STATE
     const [viewMode, setViewMode] = useState<"month" | "list">("month");
@@ -133,6 +143,8 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const [courses, setCourses] = useState(initialData);
     const [interviews, setInterviews] = useState(initialInterviews || []);
     const [personalTasks, setPersonalTasks] = useState(initialPersonalTasks || []); // [NEW] Local state
+    const [neuralTasks, setNeuralTasks] = useState(initialNeuralTasks || []); // [NEURAL LINK]
+    const [taskLists, setTaskLists] = useState(initialTaskLists || []); // [NEURAL LINK] Lists
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
     // [NEW] Add Event Modal State
@@ -140,11 +152,16 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const isCreatingTask = useRef(false);
     const [newTaskData, setNewTaskData] = useState({
         title: "",
-        type: "personal" as "personal" | "course_work",
+        type: "course_work" as "course_work" | "neural_task",
         course_id: "",
+        list_id: "",
         due_date: "",
-        description: "" // Optional
+        description: "", // Notes for tasks, Description for assignments
+        priority: "medium" as "low" | "medium" | "high"
     });
+
+    // [NEURAL LINK] Task Detail Modal state
+    const [taskDetailItem, setTaskDetailItem] = useState<any>(null);
 
     // [FIX] Sync state with props when router.refresh() updates them
     useEffect(() => {
@@ -153,7 +170,13 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         if (initialPersonalTasks) {
             setPersonalTasks(initialPersonalTasks);
         }
-    }, [initialData, initialInterviews, initialPersonalTasks]);
+        if (initialNeuralTasks) {
+            setNeuralTasks(initialNeuralTasks);
+        }
+        if (initialTaskLists) {
+            setTaskLists(initialTaskLists);
+        }
+    }, [initialData, initialInterviews, initialPersonalTasks, initialNeuralTasks, initialTaskLists]);
 
     // [NEW] EDIT EVENT MODAL STATE (Date + Grade + Name)
     const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
@@ -170,7 +193,7 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8, // < 8px = Click, > 8px = Drag (prevents accidental drags)
+                distance: 5, // 5px distance allows click events to pass through, but triggers drag on move
             },
         })
     );
@@ -179,8 +202,14 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
     const newTaskDateRef = useRef<HTMLInputElement>(null);
     const rescheduleDateRef = useRef<HTMLInputElement>(null);
 
-    // Helper to get the selected course color
+    // Helper: get color for selected course OR selected list
     const getSelectedCourseColor = () => {
+        if (newTaskData.type === 'neural_task') {
+            if (!newTaskData.list_id) return "#6366f1"; // Default purple
+            // Find list color from taskLists
+            const selectedList = taskLists.find((l: any) => l.id === newTaskData.list_id);
+            return selectedList?.color_hex ?? "#6366f1";
+        }
         if (newTaskData.type !== 'course_work' || !newTaskData.course_id) {
             return "#9ca3af"; // Gray for personal tasks
         }
@@ -247,21 +276,60 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
 
         // Check if it's a personal task (activeId may contain temp prefix from safe ID)
         let personalTask = null;
+        let neuralTask = null;
+
         if (activeId.startsWith('temp-')) {
-            // Extract the real unique ID from temp ID
+            // Extract the real unique ID from temp ID (e.g. temp-personal-123 -> personal-123)
             const uniqueId = activeId.split('-').slice(1).join('-');
             if (uniqueId.startsWith('personal-')) {
                 const realId = uniqueId.replace('personal-', '');
                 personalTask = personalTasks.find((p: any) => p.id === realId);
+            } else if (uniqueId.startsWith('neural-')) {
+                const realId = uniqueId.replace('neural-', '');
+                neuralTask = neuralTasks.find((t: any) => t.id === realId);
             }
+        } else if (activeId.startsWith('neural-')) {
+            // [FIX] Direct calendar cards use "neural-UUID" as their string ID 
+            const realId = activeId.replace('neural-', '');
+            neuralTask = neuralTasks.find((t: any) => t.id === realId);
+        } else if (activeId.startsWith('personal-')) {
+            const realId = activeId.replace('personal-', '');
+            personalTask = personalTasks.find((p: any) => p.id === realId);
         } else {
-            // Try direct lookup in personal tasks
+            // Fallback direct lookup (unlikely to hit for tasks based on mapping)
             personalTask = personalTasks.find((p: any) => p.id === activeId);
+            if (!personalTask) {
+                neuralTask = neuralTasks.find((t: any) => t.id === activeId);
+            }
+        }
+
+        // [NEURAL LINK] Handle Neural Task Drag and Drop
+        if (neuralTask) {
+            const originalDate = neuralTask.due_date.split('T')[0].split(' ')[0];
+            if (originalDate === overDate) return;
+
+            console.log(`🔄 [DRAG] Neural Task: ${neuralTask.title}`);
+
+            // Optimistic update
+            const oldNeuralTasks = JSON.parse(JSON.stringify(neuralTasks));
+            setNeuralTasks((prev: any[]) => prev.map(task => task.id === neuralTask.id ? { ...task, due_date: overDate } : task));
+
+            startTransition(async () => {
+                const { updateTask } = await import("@/app/actions/tasks");
+                const result = await updateTask(neuralTask.id, { due_date: overDate });
+                if (!result.success) {
+                    console.error("❌ [DRAG] Neural Task Update FAILED");
+                    setNeuralTasks(oldNeuralTasks);
+                } else {
+                    console.log("✅ [DRAG] Neural Task Updated Successfully");
+                }
+            });
+            return;
         }
 
         // If it's a personal task
         if (personalTask) {
-            const originalDate = personalTask.due_date.split('T')[0];
+            const originalDate = personalTask.due_date.split('T')[0].split(' ')[0];
             if (originalDate === overDate) return; // No change
 
             console.log(`🔄 [DRAG] Personal Task: ${personalTask.title}`);
@@ -287,9 +355,6 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 const result = await updatePersonalTaskDate(personalTask.id, overDate);
                 if (!result.success) {
                     console.error("❌ [DRAG] Personal Task Update FAILED");
-                    console.error("   Error:", result.error);
-                    console.error("   Task ID:", personalTask.id);
-                    console.error("   New Date:", overDate);
                     setPersonalTasks(oldPersonalTasks); // Rollback on error
                 } else {
                     console.log("✅ [DRAG] Personal Task Updated Successfully");
@@ -540,8 +605,44 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
             });
         }
 
+        // D. Process Neural Link Tasks [NEURAL LINK]
+        if (neuralTasks) {
+            neuralTasks.forEach((t: any) => {
+                const dateKey = getItemDateKey(t.due_date);
+                if (!dateKey) return;
+
+                // Find course info if linked
+                let courseCode = "NEURAL";
+                let courseColor = t.list_color || "#6366f1";
+                if (t.course_id && courses) {
+                    const matchedCourse = courses.find((c: any) => c.id === t.course_id);
+                    if (matchedCourse) {
+                        courseCode = matchedCourse.course_code;
+                        courseColor = matchedCourse.color || courseColor;
+                    }
+                }
+
+                addItem({
+                    id: t.id,
+                    uniqueId: `neural-${t.id}`,
+                    name: `☑ ${t.title}`,
+                    description: t.notes || null,
+                    due_date: dateKey,
+                    originalDate: t.due_date,
+                    courseCode: courseCode,
+                    courseColor: courseColor,
+                    weight: 0,
+                    is_completed: t.is_completed,
+                    type: "neural_task",
+                    priority: t.priority,
+                    listName: t.list_name,
+                    timeDisplay: "Task"
+                });
+            });
+        }
+
         return { flat: flattened, byDate: itemsByDate };
-    }, [courses, interviews, personalTasks]);
+    }, [courses, interviews, personalTasks, neuralTasks]);
 
     // 3. ACTIONS
     const handleToggleComplete = async (uniqueId: string, currentStatus: boolean) => {
@@ -560,6 +661,15 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                 p.id === realId ? { ...p, is_completed: !currentStatus } : p
             ));
             await togglePersonalTaskComplete(realId, !currentStatus);
+            return;
+        }
+
+        // [NEURAL LINK] Toggle Neural Task
+        if (uniqueId.startsWith("neural-")) {
+            const realId = uniqueId.replace("neural-", "");
+            // Optimistic: remove from local state (completed tasks won't appear in calendar)
+            setNeuralTasks(prev => prev.filter((t: any) => t.id !== realId));
+            await toggleTaskComplete(realId, !currentStatus);
             return;
         }
 
@@ -586,36 +696,62 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
         isCreatingTask.current = true;
 
         try {
-            // #region agent log
-            const createInput = { title: newTaskData.title, due_date: newTaskData.due_date, type: newTaskData.type, course_id: newTaskData.type === 'course_work' ? newTaskData.course_id : undefined, description: newTaskData.description };
-            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'Calendar.tsx:handleCreateTask', message: 'calling createPersonalTask', data: { hypothesisId: 'H4', type: createInput.type, hasCourseId: !!createInput.course_id }, timestamp: Date.now() }) }).catch(() => { });
-            // #endregion
+            // [NEURAL LINK] Route to Neural Task creation
+            if (newTaskData.type === 'neural_task') {
+                // Remove list_id block so backend creates Inbox if empty
+                const result = await createNeuralTask({
+                    list_id: newTaskData.list_id || undefined, // Send undefined to trigger Inbox creation
+                    title: newTaskData.title,
+                });
+                // Update due_date via updateTask since createTask only takes title/list_id
+                if (result.success && result.task) {
+                    const { updateTask } = await import("@/app/actions/tasks");
+                    await updateTask(result.task.id, {
+                        due_date: newTaskData.due_date,
+                        notes: newTaskData.description || null,
+                        priority: newTaskData.priority
+                    });
+                    // Optimistically add to neuralTasks state
+                    const listTask = neuralTasks.find((t: any) => t.list_id === newTaskData.list_id);
+                    setNeuralTasks((prev: any[]) => [
+                        ...prev,
+                        {
+                            ...result.task,
+                            due_date: newTaskData.due_date,
+                            list_color: listTask?.list_color ?? "#6366f1",
+                            list_name: listTask?.list_name ?? "Tasks",
+                            notes: newTaskData.description || null,
+                            priority: newTaskData.priority
+                        },
+                    ]);
+                    setIsAddModalOpen(false);
+                    setNewTaskData({ title: "", type: "neural_task", course_id: "", list_id: newTaskData.list_id, due_date: "", description: "", priority: "medium" });
+                } else {
+                    alert(result.error || "Failed to create task");
+                }
+                return;
+            }
+
             // [CRITICAL] Wait for server response with REAL UUID
             const result = await createPersonalTask({
                 title: newTaskData.title,
-                // [FIX] Send raw YYYY-MM-DD string (no timezone conversion)
                 due_date: newTaskData.due_date,
-                type: newTaskData.type,
+                type: newTaskData.type as "personal" | "course_work",
                 course_id: newTaskData.type === 'course_work' ? newTaskData.course_id : undefined,
                 description: newTaskData.description
             });
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a12bb5f7-0396-4a02-99a0-cab3cb93f85c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'Calendar.tsx:handleCreateTask', message: 'createPersonalTask result', data: { hypothesisId: 'H1,H2', success: result.success, error: result.error }, timestamp: Date.now() }) }).catch(() => { });
-            // #endregion
 
             if (result.success && result.task) {
-                // [CRITICAL] Use REAL database object (not temp ID)
-                // This prevents ghost items and enables drag-and-drop
-                setPersonalTasks(prev => [...prev, result.task]);
+                setPersonalTasks((prev: any[]) => [...prev, result.task]);
                 setIsAddModalOpen(false);
-
-                // Reset form
                 setNewTaskData({
                     title: "",
-                    type: "personal",
+                    type: "course_work",
                     course_id: "",
+                    list_id: "",
                     due_date: "",
-                    description: ""
+                    description: "",
+                    priority: "medium"
                 });
             } else {
                 console.error("Failed to create task:", result.error);
@@ -734,40 +870,53 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                 {displayItems.map((item: any, index: number) => {
                                     const isInterview = item.type === "interview";
                                     const isOA = item.type === "oa";
-                                    const isPersonal = item.uniqueId.startsWith("personal-");
-                                    const isCareer = isInterview || isOA; // Only interviews and OAs are non-draggable
+                                    const isNeuralTask = item.type === "neural_task";
+                                    const isCareer = isInterview || isOA;
                                     const itemColor = item.courseColor || getCourseColor(item.courseCode);
-                                    const isDraggable = !isCareer; // Assessments and Personal tasks are draggable
 
-                                    // [FIX] Safe ID for draggable items (prevents crashes on null IDs)
-                                    const safeId = item.id ? String(item.id) : `temp-${item.uniqueId}-${index}`;
+                                    // Neural tasks and personal tasks SHOULD be draggable. Only Careers are locked.
+                                    const isDraggable = !isCareer;
+
+                                    // Safe ID for draggable items
+                                    const safeId = item.id ? String(item.id) : item.uniqueId ? String(item.uniqueId) : `temp-${index}`;
 
                                     const cardContent = (
                                         <div
                                             key={item.uniqueId}
                                             className={cn(
-                                                "relative flex flex-col px-2 py-1.5 rounded-sm border-l-4 shadow-sm transition-all overflow-hidden cursor-pointer",
-                                                "border-y-0 border-r-0",
-                                                item.is_completed && "opacity-60 grayscale border-dashed"
+                                                "relative flex flex-col px-2 py-1.5 shadow-sm transition-all overflow-hidden cursor-pointer",
+                                                // Neural tasks: rounded more, dashed left border
+                                                isNeuralTask
+                                                    ? "rounded border-l-2 border-dashed"
+                                                    : "rounded-sm border-l-4 border-y-0 border-r-0",
+                                                item.is_completed && "opacity-60 grayscale"
                                             )}
                                             style={{
                                                 borderLeftColor: itemColor,
-                                                // CHANGE: increased opacity from 20% (35) to 45% (70), and end from 4% (0a) to 10% (1a)
-                                                background: `linear-gradient(90deg, ${itemColor}60 0%, ${itemColor}1a 100%)`,
-                                                // OPTIONAL: Add a subtle glow to make it pop even more
+                                                background: isNeuralTask
+                                                    ? `linear-gradient(90deg, ${itemColor}40 0%, ${itemColor}10 100%)`
+                                                    : `linear-gradient(90deg, ${itemColor}60 0%, ${itemColor}1a 100%)`,
                                                 boxShadow: `inset 1px 0 0 0 ${itemColor}40`
                                             }}
                                             onClick={(e) => {
-                                                // Open reschedule/edit modal when card is clicked
                                                 e.stopPropagation();
-                                                handleRescheduleClick(item, e);
+                                                if (isNeuralTask) {
+                                                    setTaskDetailItem(item);
+                                                } else {
+                                                    handleRescheduleClick(item, e);
+                                                }
                                             }}
                                         >
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="text-[10px] font-black tracking-tight uppercase opacity-95 flex items-center gap-1 text-white">
                                                     {isInterview && <Handshake className="w-3 h-3 text-yellow-400" />}
                                                     {isOA && <Laptop className="w-3 h-3 text-cyan-400" />}
-                                                    {item.courseCode}
+                                                    {isNeuralTask ? (
+                                                        // Show list name for neural tasks
+                                                        <span style={{ color: itemColor }}>{item.listName}</span>
+                                                    ) : (
+                                                        item.courseCode
+                                                    )}
                                                 </span>
                                                 {isCareer ? (
                                                     <span
@@ -776,6 +925,17 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                     >
                                                         {item.timeDisplay}
                                                     </span>
+                                                ) : isNeuralTask ? (
+                                                    // Priority badge for neural tasks
+                                                    <span
+                                                        className="text-[9px] font-bold uppercase tracking-wider px-1 rounded"
+                                                        style={{
+                                                            color: item.priority === 'high' ? '#ef4444' : item.priority === 'low' ? '#10b981' : '#f59e0b',
+                                                            backgroundColor: item.priority === 'high' ? '#ef444420' : item.priority === 'low' ? '#10b98120' : '#f59e0b20',
+                                                        }}
+                                                    >
+                                                        {item.priority ?? 'med'}
+                                                    </span>
                                                 ) : (
                                                     <span className="text-[9px] font-bold uppercase tracking-wider text-white opacity-70">
                                                         {getAssessmentType(item.name, item.type)}
@@ -783,33 +943,42 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 )}
                                             </div>
 
-                                            <div className="font-bold text-xs leading-tight line-clamp-2 pr-4 mb-1 opacity-95 text-gray-100">
-                                                {item.name}
+                                            <div className="font-bold text-xs leading-tight line-clamp-2 pr-4 mb-1 opacity-95 text-gray-100 flex items-center gap-1">
+                                                {isNeuralTask && (
+                                                    // SVG checkbox instead of ☑ in title string
+                                                    <svg className="w-3 h-3 shrink-0 opacity-70" viewBox="0 0 12 12" fill="none">
+                                                        <rect x="1" y="1" width="10" height="10" rx="2" stroke={itemColor} strokeWidth="1.5" />
+                                                        <path d="M3 6l2 2 4-4" stroke={itemColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={item.is_completed ? "" : "opacity-0"} />
+                                                    </svg>
+                                                )}
+                                                {/* Strip the ☑ prefix we added in data processing */}
+                                                {item.name.replace(/^☑\s*/, "")}
                                             </div>
 
                                             <div className="text-[10px] font-medium text-white opacity-80">
-                                                {isCareer ? item.description : `${item.weight}%`}
+                                                {isCareer ? item.description : isNeuralTask ? (item.description ? item.description.slice(0, 40) : "") : `${item.weight}%`}
                                             </div>
 
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleToggleComplete(item.uniqueId, item.is_completed);
-                                                }}
-                                                className={cn(
-                                                    "absolute bottom-2 right-2 w-5 h-5 rounded-sm border flex items-center justify-center transition-all",
-                                                    item.is_completed
-                                                        ? "border-current text-current"
-                                                        : "border-white/10 text-transparent hover:border-white/20 bg-black/40"
-                                                )}
-                                                style={item.is_completed ? { backgroundColor: `${itemColor}15` } : {}}
-                                            >
-                                                <Check className={cn("w-3.5 h-3.5 transition-transform", item.is_completed && "scale-100", !item.is_completed && "scale-0")} />
-                                            </button>
+                                            {!isNeuralTask && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleToggleComplete(item.uniqueId, item.is_completed);
+                                                    }}
+                                                    className={cn(
+                                                        "absolute bottom-2 right-2 w-5 h-5 rounded-sm border flex items-center justify-center transition-all",
+                                                        item.is_completed
+                                                            ? "border-current text-current"
+                                                            : "border-white/10 text-transparent hover:border-white/20 bg-black/40"
+                                                    )}
+                                                    style={item.is_completed ? { backgroundColor: `${itemColor}15` } : {}}
+                                                >
+                                                    <Check className={cn("w-3.5 h-3.5 transition-transform", item.is_completed && "scale-100", !item.is_completed && "scale-0")} />
+                                                </button>
+                                            )}
                                         </div>
                                     );
 
-                                    // Wrap draggable items with safe ID
                                     if (isDraggable) {
                                         return (
                                             <DraggableCard key={item.uniqueId} id={safeId}>
@@ -1248,17 +1417,6 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                             </label>
                                             <div className="flex items-center gap-1 p-1 bg-white/5 rounded-xl border border-white/5">
                                                 <button
-                                                    onClick={() => setNewTaskData({ ...newTaskData, type: 'personal' })}
-                                                    className={cn(
-                                                        "flex-1 text-xs py-2.5 rounded-lg font-bold transition-all",
-                                                        newTaskData.type === 'personal'
-                                                            ? "bg-white/10 text-white shadow-sm"
-                                                            : "text-gray-500 hover:text-white hover:bg-white/5"
-                                                    )}
-                                                >
-                                                    Personal
-                                                </button>
-                                                <button
                                                     onClick={() => setNewTaskData({ ...newTaskData, type: 'course_work' })}
                                                     className={cn(
                                                         "flex-1 text-xs py-2.5 rounded-lg font-bold transition-all",
@@ -1271,7 +1429,27 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                         color: getSelectedCourseColor()
                                                     } : {}}
                                                 >
-                                                    Course Work
+                                                    Assignment
+                                                </button>
+                                                {/* [NEURAL LINK] Neural Task tab */}
+                                                <button
+                                                    onClick={() => setNewTaskData({ ...newTaskData, type: 'neural_task' })}
+                                                    className={cn(
+                                                        "flex-1 text-xs py-2.5 rounded-lg font-bold transition-all",
+                                                        newTaskData.type === 'neural_task'
+                                                            ? "shadow-sm flex items-center justify-center gap-1.5"
+                                                            : "text-gray-500 hover:text-white hover:bg-white/5 flex items-center justify-center gap-1.5"
+                                                    )}
+                                                    style={newTaskData.type === 'neural_task' ? {
+                                                        backgroundColor: `${getSelectedCourseColor()}20`,
+                                                        color: getSelectedCourseColor()
+                                                    } : {}}
+                                                >
+                                                    <svg className="w-3.5 h-3.5 opacity-80" viewBox="0 0 12 12" fill="none">
+                                                        <rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                                                        <path d="M3 6l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                    Task
                                                 </button>
                                             </div>
                                         </div>
@@ -1310,6 +1488,41 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                                 </div>
                                             </div>
                                         )}
+
+                                        {/* [NEURAL LINK] List selector for Neural Tasks */}
+                                        {newTaskData.type === 'neural_task' && (() => {
+                                            return (
+                                                <div className="flex-1 space-y-2 animate-in fade-in slide-in-from-left-2">
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                                        Task List
+                                                    </label>
+                                                    <div className="relative">
+                                                        {newTaskData.list_id && (
+                                                            <div
+                                                                className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full z-10 transition-colors duration-300"
+                                                                style={{ backgroundColor: getSelectedCourseColor(), boxShadow: `0 0 6px ${getSelectedCourseColor()}80` }}
+                                                            />
+                                                        )}
+                                                        <select
+                                                            value={newTaskData.list_id}
+                                                            onChange={(e) => setNewTaskData({ ...newTaskData, list_id: e.target.value })}
+                                                            className={cn(
+                                                                "w-full bg-white/5 border rounded-xl py-3 text-white focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium appearance-none cursor-pointer",
+                                                                newTaskData.list_id ? "pl-8 pr-4" : "px-4 border-white/5"
+                                                            )}
+                                                            style={newTaskData.list_id ? { borderColor: `${getSelectedCourseColor()}40` } : {}}
+                                                        >
+                                                            <option value="" className="bg-zinc-900 text-gray-500">Inbox (Default)</option>
+                                                            {taskLists.map((l: any) => (
+                                                                <option key={l.id} value={l.id} className="bg-zinc-900 text-white">
+                                                                    {l.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Date Picker (Obsidian Style) */}
@@ -1328,6 +1541,50 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                                             <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-white pointer-events-none" />
                                         </div>
                                     </div>
+
+                                    {/* [NEURAL LINK] Priority & Notes for Tasks */}
+                                    {newTaskData.type === 'neural_task' && (
+                                        <>
+                                            <div className="group">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                                    Priority
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    {(['low', 'medium', 'high'] as const).map((p) => (
+                                                        <button
+                                                            key={p}
+                                                            onClick={() => setNewTaskData({ ...newTaskData, priority: p })}
+                                                            className={cn(
+                                                                "flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                                                                newTaskData.priority === p
+                                                                    ? "border-transparent bg-white/10 text-white shadow-sm"
+                                                                    : "border-white/5 bg-transparent text-gray-500 hover:text-white hover:bg-white/5"
+                                                            )}
+                                                            style={newTaskData.priority === p ? {
+                                                                backgroundColor: p === 'high' ? '#ef444420' : p === 'low' ? '#10b98120' : '#f59e0b20',
+                                                                color: p === 'high' ? '#ef4444' : p === 'low' ? '#10b981' : '#f59e0b',
+                                                                borderColor: p === 'high' ? '#ef444440' : p === 'low' ? '#10b98140' : '#f59e0b40',
+                                                            } : {}}
+                                                        >
+                                                            {p}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="group">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 group-focus-within:text-white transition-colors">
+                                                    Notes
+                                                </label>
+                                                <textarea
+                                                    value={newTaskData.description}
+                                                    onChange={(e) => setNewTaskData({ ...newTaskData, description: e.target.value })}
+                                                    placeholder="Add any additional context..."
+                                                    className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none transition-all font-medium text-sm tracking-wide shadow-inner min-h-[80px] resize-none"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
 
                                     {/* Action Button (Glass Gem) */}
                                     <div className="pt-2">
@@ -1367,6 +1624,15 @@ export default function Calendar({ initialData, initialInterviews, initialPerson
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* [NEURAL LINK] Task Detail Modal */}
+            {taskDetailItem && (
+                <TaskDetailModal
+                    item={taskDetailItem}
+                    onClose={() => setTaskDetailItem(null)}
+                    onToggleComplete={handleToggleComplete}
+                />
+            )}
 
             {/* EDIT EVENT DIALOG (Premium Glass UI) */}
             <AnimatePresence>
