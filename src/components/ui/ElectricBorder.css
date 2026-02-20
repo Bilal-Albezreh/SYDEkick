@@ -1,0 +1,89 @@
+/* ── ElectricBorder ── */
+/* A pure CSS animated border using conic-gradient + oklch for vivid neon arcs */
+
+.electric-border {
+  --eb-color: oklch(0.72 0.22 264);   /* default indigo, overridden via inline style */
+  --eb-radius: 24px;
+  --eb-speed: 3s;    
+  position: relative;
+  border-radius: var(--eb-radius);
+}
+
+/* The rotating conic-gradient mask that paints the arc */
+.eb-canvas-container {
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--eb-radius) + 2px);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.eb-canvas-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 60%,
+    var(--eb-color) 75%,
+    oklch(1 0 0 / 0.9) 78%,
+    var(--eb-color) 81%,
+    transparent 95%,
+    transparent 100%
+  );
+  animation: eb-spin var(--eb-speed) linear infinite;
+}
+
+/* Inner mask — cuts out the interior so only the border ring shows */
+.eb-canvas-container::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: calc(var(--eb-radius));
+  background: inherit;
+  /* Use the parent's actual bg — in dark themes this is effectively black/transparent */
+  background: oklch(0.13 0.01 270);   /* near-black fallback */
+}
+
+/* Glow layer — soft bloom behind the arc */
+.eb-layers {
+  position: absolute;
+  inset: -6px;
+  border-radius: calc(var(--eb-radius) + 6px);
+  pointer-events: none;
+  z-index: 9;
+  overflow: hidden;
+}
+
+.eb-layers::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 55%,
+    var(--eb-color) 75%,
+    transparent 95%,
+    transparent 100%
+  );
+  opacity: 0.35;
+  filter: blur(12px);
+  animation: eb-spin var(--eb-speed) linear infinite;
+}
+
+/* Content sits above the effects */
+.eb-content {
+  position: relative;
+  z-index: 11;
+  height: 100%;
+}
+
+@keyframes eb-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

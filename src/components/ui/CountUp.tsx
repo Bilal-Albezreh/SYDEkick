@@ -39,26 +39,43 @@ export default function CountUp({
         if (!isInView || !startWhen) return;
         if (typeof onStart === 'function') onStart();
 
-        const controls = animate(fromValue, to, {
-            duration,
+        const wholeTarget = Math.floor(to);
+        const decimalDuration = 0.4; // slow settle for the decimal part
+        const sprintDuration = Math.max(duration - decimalDuration, 0.3);
+
+        const update = (latest: unknown) => {
+            if (ref.current) ref.current.textContent = formatValue(latest as number);
+        };
+
+        let phase2: { stop: () => void } | null = null;
+
+        // Phase 1: fast sprint to the whole number
+        const phase1 = animate(fromValue, wholeTarget, {
+            duration: sprintDuration,
             delay,
             ease: [0.15, 0.6, 0.2, 1],
-            onUpdate: (latest) => {
-                if (ref.current) ref.current.textContent = formatValue(latest as unknown as number);
-            },
+            onUpdate: update,
             onComplete: () => {
-                if (ref.current) {
-                    ref.current.textContent = Intl.NumberFormat('en-US', {
-                        useGrouping: !!separator,
-                        minimumFractionDigits: decimals,
-                        maximumFractionDigits: decimals,
-                    }).format(to);
-                }
-                if (typeof onEnd === 'function') onEnd();
+                // Phase 2: slow settle into the decimal
+                phase2 = animate(wholeTarget, to, {
+                    duration: decimalDuration,
+                    ease: 'easeOut',
+                    onUpdate: update,
+                    onComplete: () => {
+                        if (ref.current) {
+                            ref.current.textContent = Intl.NumberFormat('en-US', {
+                                useGrouping: !!separator,
+                                minimumFractionDigits: decimals,
+                                maximumFractionDigits: decimals,
+                            }).format(to);
+                        }
+                        if (typeof onEnd === 'function') onEnd();
+                    },
+                });
             },
         });
 
-        return () => controls.stop();
+        return () => { phase1.stop(); phase2?.stop(); };
     }, [isInView, startWhen, fromValue, to, duration, delay, separator, decimals, formatValue, onStart, onEnd]);
 
     return <span className={className} ref={ref} />;

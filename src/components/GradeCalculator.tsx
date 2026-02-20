@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,12 @@ import { updateAssessmentScore } from "@/app/actions/index";
 import { Loader2, RotateCcw, BarChart3, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from "recharts";
 import { LayoutGroup } from "framer-motion";
 import TermAverageBadge from "@/components/grades/TermAverageBadge";
 import CountUp from "@/components/ui/CountUp";
+import ElectricBorder from "@/components/ui/ElectricBorder";
 
 // --- RULES ENGINE CONFIGURATION ---
 const COURSE_RULES: Record<string, any[]> = {
@@ -295,20 +296,8 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6" style={{ minHeight: '650px', height: 'calc(100% - 1rem)' }}>
           {/* SIDEBAR */}
           <div className="lg:col-span-1 bg-black/30 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-800 bg-white/[0.02] flex justify-between items-center gap-2">
+            <div className="p-4 border-b border-gray-800 bg-white/[0.02]">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Navigation</span>
-              {/* Simulator Toggle moved here */}
-              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                <span className={cn("text-[10px] font-bold uppercase hidden xl:block", isHypothetical ? "text-purple-400" : "text-gray-600")}>
-                  {isHypothetical ? "Sim" : "Real"}
-                </span>
-                <Switch checked={isHypothetical} onCheckedChange={handleModeToggle} className="scale-75 origin-right" />
-                {isHypothetical && (
-                  <Button size="icon" variant="ghost" onClick={resetHypothetical} className="h-5 w-5 text-gray-400 hover:text-white">
-                    <RotateCcw className="w-3 h-3" />
-                  </Button>
-                )}
-              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               <button onClick={() => setViewMode("overview")} className={cn("w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all border-l-4", viewMode === "overview" ? "border-cyan-500 bg-gradient-to-r from-cyan-500/10 to-transparent text-cyan-400 font-bold" : "border-transparent text-gray-400 hover:bg-white/5")}>
@@ -448,7 +437,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                         backgroundColor: 'rgba(255, 255, 255, 0.03)',
                         boxShadow: `0 8px 32px -12px ${simCourse.color || '#6366f1'}`,
                       }}
-                      className="mt-6 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative animate-in fade-in slide-in-from-bottom-4 duration-300"
+                      className="mt-6 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative animate-in fade-in slide-in-from-bottom-4 duration-300 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"
                     >
                       {/* Color Bleed — radial glow from top edge */}
                       <div
@@ -476,17 +465,19 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                       </div>
 
                       {/* Header */}
-                      <div className="mb-5">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: simCourse.color || '#6366f1' }} />
-                          <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Quick Simulator</span>
+                      <div className="mb-5 flex items-center justify-between pr-28">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: simCourse.color || '#6366f1' }} />
+                            <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Quick Simulator</span>
+                          </div>
+                          <h3 className="text-xl font-bold text-white">
+                            {simCourse.course_code}
+                            <span className="text-gray-500 font-normal ml-2 text-sm">
+                              — {formatNum(remainingWeight)}% remaining weight
+                            </span>
+                          </h3>
                         </div>
-                        <h3 className="text-xl font-bold text-white">
-                          {simCourse.course_code}
-                          <span className="text-gray-500 font-normal ml-2 text-sm">
-                            — {formatNum(remainingWeight)}% remaining weight
-                          </span>
-                        </h3>
                       </div>
 
                       {/* ── War Room Stats Row ── */}
@@ -505,9 +496,9 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                         </div>
                       </div>
 
-                      {/* ── Smart Target Buttons ── */}
+                      {/* ── Course Grade Target Buttons ── */}
                       <div className="flex items-center gap-2 mb-5">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mr-1">Target:</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mr-1">Course Grade Target:</span>
                         {targets.map((t) => {
                           const req = calcRequired(t);
                           const impossible = req > 100;
@@ -516,7 +507,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                             <button
                               key={t}
                               disabled={impossible}
-                              onClick={() => setSimSliderValue(achieved ? 0 : Math.min(100, Math.round(req)))}
+                              onClick={() => setSimSliderValue(achieved ? 0 : Math.min(100, req))}
                               className={cn(
                                 "px-3 py-1 rounded-full text-xs font-bold border transition-all",
                                 impossible
@@ -543,14 +534,14 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                                 const val = parseFloat((e.target as HTMLInputElement).value);
                                 if (isNaN(val)) return;
                                 const req = calcRequired(val);
-                                setSimSliderValue(req <= 0 ? 0 : Math.min(100, Math.round(req)));
+                                setSimSliderValue(req <= 0 ? 0 : Math.min(100, req));
                               }
                             }}
                             onBlur={(e) => {
                               const val = parseFloat(e.target.value);
                               if (isNaN(val) || e.target.value === '') return;
                               const req = calcRequired(val);
-                              setSimSliderValue(req <= 0 ? 0 : Math.min(100, Math.round(req)));
+                              setSimSliderValue(req <= 0 ? 0 : Math.min(100, req));
                             }}
                           />
                         </div>
@@ -558,10 +549,19 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
 
                       {/* Slider */}
                       <div className="mb-5">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs text-gray-400">If you score an average of...</span>
-                          <span className="text-sm font-mono font-bold text-white bg-white/10 px-2.5 py-0.5 rounded-md">{simSliderValue}%</span>
-                        </div>
+                        <p className="text-xs text-gray-400 mb-2">
+                          If you average{" "}
+                          <span
+                            className="text-xl font-bold font-mono mx-1"
+                            style={{
+                              color: simCourse.color || '#a78bfa',
+                              textShadow: `0 0 16px ${simCourse.color || '#a78bfa'}99`,
+                            }}
+                          >
+                            {Number.isInteger(simSliderValue) ? simSliderValue : simSliderValue.toFixed(2)}%
+                          </span>{" "}
+                          on the remaining assessments...
+                        </p>
                         <input
                           type="range"
                           min="0"
@@ -589,7 +589,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                               textShadow: `0 0 20px ${projectedCourseGrade >= 80 ? '#22c55e' : projectedCourseGrade >= 50 ? '#eab308' : '#ef4444'}66`,
                             }}
                           >
-                            <CountUp from={0} to={projectedCourseGrade} duration={0.8} decimals={2} startWhen={true} />
+                            <CountUp to={projectedCourseGrade} duration={0.8} decimals={2} startWhen={true} />
                             <span>%</span>
                           </div>
                         </div>
@@ -599,7 +599,7 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
                             className="flex items-baseline text-3xl font-black tabular-nums"
                             style={{ color: gpaGlowColor, textShadow: `0 0 20px ${gpaGlowColor}66` }}
                           >
-                            <CountUp from={0} to={projectedTermAvg} duration={0.8} decimals={2} startWhen={true} />
+                            <CountUp to={projectedTermAvg} duration={0.8} decimals={2} startWhen={true} />
                             <span>%</span>
                           </div>
                           <div className="text-xs font-mono mt-1" style={{ color: gpaGlowColor }}>
@@ -614,106 +614,203 @@ export default function GradeCalculator({ initialData }: { initialData: any[] })
             )}
 
             {/* --- DETAIL MODE --- */}
-            {viewMode === "detail" && selectedCourse && selectedCourseStats && (
-              <div className="flex flex-col h-full animate-in fade-in duration-300">
-                <div className="p-6 border-b border-gray-800 bg-white/[0.02] flex justify-between items-end">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1"><span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white border border-white/10">COURSE DETAIL</span></div>
-                    <h1 className="text-3xl font-bold text-white">{selectedCourse.course_code}</h1>
-                    <p className="text-gray-400">{selectedCourse.course_name}</p>
-                  </div>
-                  <div className="flex items-end gap-6 text-right">
-                    {/* ── Docked Term Average Badge ── */}
-                    <TermAverageBadge variant="docked" average={termStats.average} hasData={hasGradedData} />
-                    <div><div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Weight Achieved</div><div className="text-xl font-mono font-bold text-gray-300"><span className="text-white">{formatNum(selectedCourseStats.earnedWeight)}</span><span className="text-gray-600 mx-1">/</span><span>{formatNum(selectedCourseStats.attemptedWeight)}</span></div></div>
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Current Grade</div>
-                      {selectedCourseStats.isExcluded ? (
-                        <div className="text-3xl font-black text-blue-400">Pass/Fail</div>
-                      ) : (
-                        <div className={cn("text-5xl font-black", getGradeColor(selectedCourseStats))}>{formatNum(selectedCourseStats.average)}%</div>
-                      )}
+            {viewMode === "detail" && selectedCourse && selectedCourseStats && (() => {
+              const courseColor = selectedCourse.color || '#6366f1';
+              const DetailContent = (
+                <div className="flex flex-col h-full animate-in fade-in duration-300 relative">
+
+                  {/* ── ATMOSPHERIC BLOOM (top-right, behind everything) ── */}
+                  <div
+                    className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none z-0"
+                    style={{ background: courseColor, opacity: 0.12, filter: 'blur(150px)' }}
+                  />
+
+                  {/*  COMMAND MODULE HEADER  */}
+                  <div className="px-6 pt-6 pb-0 shrink-0 z-10">
+                    <div
+                      className="relative overflow-hidden bg-white/[0.04] backdrop-blur-3xl border border-white/10 rounded-3xl p-6 mb-6 shadow-lg"
+                      style={{
+                        backgroundImage: `radial-gradient(circle at 0% 0%, ${courseColor}30 0%, transparent 60%)`,
+                        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15)',
+                      }}
+                    >
+                      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 w-full relative z-10">
+                        {/* Left: Course identity */}
+                        <div>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white border border-white/10 uppercase tracking-widest">Course Detail</span>
+                          <h1 className="text-3xl font-bold text-white mt-2 leading-none">{selectedCourse.course_code}</h1>
+                          <p className="text-white/40 mt-0.5 text-sm">{selectedCourse.course_name}</p>
+                        </div>
+
+                        {/* Right: Stats + Simulator toggle */}
+                        <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full xl:w-auto">
+                          <TermAverageBadge variant="docked" average={termStats.average} hasData={hasGradedData} />
+                          <div>
+                            <div className="text-[10px] text-white/30 uppercase tracking-widest mb-1">Weight Achieved</div>
+                            <div className="text-xl font-mono font-bold">
+                              <span className="text-white">{formatNum(selectedCourseStats.earnedWeight)}</span>
+                              <span className="text-white/30 mx-1">/</span>
+                              <span className="text-white/50">{formatNum(selectedCourseStats.attemptedWeight)}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-white/30 uppercase tracking-widest mb-1">Current Grade</div>
+                            {selectedCourseStats.isExcluded ? (
+                              <div className="text-3xl font-black text-blue-400">Pass/Fail</div>
+                            ) : (
+                              <div className={cn("text-5xl font-black", getGradeColor(selectedCourseStats))}>{formatNum(selectedCourseStats.average)}%</div>
+                            )}
+                          </div>
+
+                          {/* ── SIMULATOR TOGGLE ── */}
+                          {isHypothetical ? (
+                            <ElectricBorder color={courseColor} speed={0.4} chaos={0.15} borderRadius={999} className="shrink-0">
+                              <button
+                                onClick={() => handleModeToggle(false)}
+                                className="flex items-center gap-2 bg-black/80 border border-white/10 rounded-full px-4 py-2 hover:bg-white/5 transition-colors relative z-10"
+                              >
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: courseColor, boxShadow: `0 0 8px ${courseColor}` }} />
+                                <span className="text-xs font-mono font-bold text-white whitespace-nowrap">SIMULATOR: ON</span>
+                              </button>
+                            </ElectricBorder>
+                          ) : (
+                            <button
+                              onClick={() => handleModeToggle(true)}
+                              className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-full px-4 py-2 hover:bg-white/5 transition-colors shrink-0"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-gray-600" />
+                              <span className="text-xs font-mono font-bold text-white whitespace-nowrap">SIMULATOR: OFF</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
-                  <div className="space-y-3">
-                    {sortedAssessments.map((assess: any) => {
-                      const scoreVal = assess.score !== null ? parseFloat(assess.score) : 0;
-                      const maxMarks = assess.total_marks || 100;
+                  {/*  TACTICAL ZONE  */}
+                  <div className="relative flex-1 min-h-0 mx-6 mb-6 rounded-3xl overflow-hidden z-10">
 
-                      const isFail = assess.score !== null && (scoreVal / maxMarks) * 100 < 50;
-                      const isAce = assess.score !== null && (scoreVal / maxMarks) * 100 >= 80;
-                      const isPending = assess.score === null;
+                    {/* Static blueprint grid layer */}
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)',
+                        backgroundSize: '24px 24px',
+                      }}
+                    />
 
-                      return (
-                        <div key={assess.id} className={cn(
-                          "flex items-center gap-4 p-4 rounded-xl border-l-4 transition-all mb-3 backdrop-blur-md shadow-sm group relative",
-                          assess.isDropped
-                            ? "bg-red-900/5 border-l-gray-600 border-y-white/5 border-r-white/5 opacity-50 grayscale-[0.5]"
-                            : isPending
-                              ? "bg-white/5 border-l-white/20 border-dashed border-y-white/20 border-r-white/20 text-gray-300 hover:bg-white/10 hover:border-solid hover:border-white/40"
-                              : isFail
-                                ? "bg-red-500/10 border-l-red-500 border-y-red-500/10 border-r-red-500/10 shadow-[0_0_10px_rgba(239,68,68,0.1)]"
-                                : isAce
-                                  ? "bg-yellow-500/10 border-l-yellow-400 border-y-yellow-500/10 border-r-yellow-500/10 shadow-[0_0_10px_rgba(234,179,8,0.1)]"
-                                  : "bg-black/30 border-l-white/20 border-y-white/5 border-r-white/5 hover:bg-black/40 hover:border-l-white/40"
-                        )}>
+                    {/* Scrollable cards */}
+                    <div className="relative z-10 h-full overflow-y-auto p-2">
+                      {sortedAssessments.map((assess: any) => {
+                        const scoreVal = assess.score !== null ? parseFloat(assess.score) : null;
+                        const maxMarks = assess.total_marks || 100;
+                        const scorePct = scoreVal !== null ? (scoreVal / maxMarks) * 100 : 0;
+                        const isFail = scoreVal !== null && scorePct < 50;
+                        const isMid = scoreVal !== null && scorePct >= 50 && scorePct < 80;
+                        const isPending = assess.score === null;
 
-                          {assess.isDropped && <div className="absolute -top-2 -right-2 bg-red-900 text-red-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-800 shadow-sm z-10">DROPPED</div>}
-                          {assess.isBoosted && <div className="absolute -top-2 -right-2 bg-blue-900 text-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-800 shadow-sm z-10">WEIGHT BOOST</div>}
+                        // Points Secured
+                        const pointsSecured = scoreVal !== null ? (scoreVal / maxMarks) * assess.effectiveWeight : null;
+                        const pointsPossible = assess.effectiveWeight;
 
-                          <div className="flex-1">
-                            <div className={cn("font-medium", assess.isDropped ? "text-gray-500 line-through" : "text-gray-200")}>{assess.name}</div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className={cn("text-xs font-bold px-1.5 py-0.5 rounded", assess.isBoosted ? "bg-blue-500/20 text-blue-300" : "bg-white/10 text-gray-400")}>
-                                Weight: {assess.effectiveWeight}%
+                        // Dynamic neon grade color
+                        const gradeColor = isPending ? null
+                          : isFail ? '#FF3B30'
+                            : isMid ? '#FFFFFF'
+                              : '#00FFA3';
+
+                        const scoreTextColor = isPending ? 'text-white/20'
+                          : isFail ? 'text-[#FF3B30]'
+                            : isMid ? 'text-white'
+                              : 'text-[#00FFA3]';
+
+                        return (
+                          <div
+                            key={assess.id}
+                            className={cn(
+                              "group relative overflow-hidden bg-white/[0.02] backdrop-blur-md border border-white/10 rounded-2xl p-4 mb-3 z-10 shadow-lg",
+                              "transition-all duration-300 ease-out",
+                              "hover:bg-white/[0.04] hover:border-white/20 hover:-translate-y-[1px]",
+                              assess.isDropped && "opacity-50 grayscale-[0.5]"
+                            )}
+                          >
+                            {/* 3-column grid */}
+                            <div className="grid grid-cols-[minmax(0,1fr)_140px_auto] gap-5 items-center min-h-[56px]">
+
+                              {/* Col 1  Identity */}
+                              <div>
+                                <div className={cn("font-bold text-lg tracking-tight leading-snug", assess.isDropped ? "text-white/30 line-through" : "text-white")}>
+                                  {assess.name}
+                                </div>
+                                <div className="mt-1 text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
+                                  WEIGHT: {assess.effectiveWeight}%
+                                  {assess.due_date && ` \u2022 DUE: ${new Date(assess.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                                  {assess.isBoosted && <span className="text-blue-400/70 ml-2">{'\u2191'} BOOST</span>}
+                                  {assess.isDropped && <span className="text-red-400/70 ml-2">DROPPED</span>}
+                                </div>
                               </div>
-                              {assess.due_date && (
-                                <div className="text-xs text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded bg-black/30">
-                                  {new Date(assess.due_date).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          </div>
 
-                          <div className="flex items-center gap-3">
-                            <div className="relative group/input">
-                              <Input
-                                type="number"
-                                min="0"
-                                max={maxMarks}
-                                placeholder="-"
-                                value={assess.score ?? ""}
-                                onChange={(e) => handleScoreChange(assess.id, e.target.value, maxMarks)}
-                                disabled={assess.isDropped && !assess.score}
-                                className={cn(
-                                  "w-20 h-12 text-center text-xl font-bold rounded-lg transition-all duration-200",
-                                  "border-2 focus:ring-0 focus:ring-offset-0 placeholder:text-gray-700",
-                                  assess.isDropped
-                                    ? "bg-transparent border-transparent text-gray-600"
-                                    : isHypothetical
-                                      ? "bg-purple-500/10 border-purple-500/20 text-purple-300 focus:border-purple-400 focus:bg-purple-500/20"
-                                      : "bg-black/40 border-white/5 text-white focus:border-blue-500/50 focus:bg-black/60",
-                                  parseFloat(assess.score) >= maxMarks && !assess.isDropped && "border-green-500/30 text-green-400 bg-green-500/5"
+                              {/* Col 2  Points Secured */}
+                              <div className="text-right">
+                                <div className="text-[9px] text-white/20 font-bold uppercase tracking-widest mb-1">Points Secured</div>
+                                {isPending ? (
+                                  <div className="text-xl font-mono font-medium text-white/20">
+                                    {'\u2014'} <span className="text-sm text-white/15">/ {pointsPossible.toFixed(1)}</span>
+                                  </div>
+                                ) : (
+                                  <div className="text-xl font-mono font-medium">
+                                    <span style={{ color: gradeColor ?? '#ffffff', textShadow: gradeColor ? `0 0 16px ${gradeColor}80` : 'none' }}>
+                                      {pointsSecured!.toFixed(1)}
+                                    </span>
+                                    <span className="text-white/30 text-sm"> / {pointsPossible.toFixed(1)}</span>
+                                  </div>
                                 )}
-                              />
-                              {!isHypothetical && loadingId === assess.id && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-lg backdrop-blur-[1px]">
-                                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                                </div>
-                              )}
+                              </div>
+
+                              {/* Col 3  Recessed Score Box */}
+                              <div
+                                className={cn(
+                                  "relative w-32 h-16 rounded-xl border flex flex-col items-center justify-center transition-all duration-200",
+                                  "bg-black/40 border-white/5 shadow-[inset_0_2px_8px_rgba(0,0,0,0.6)]",
+                                  "focus-within:border-white/20"
+                                )}
+                                style={gradeColor ? { borderColor: `${gradeColor}30` } : undefined}
+                              >
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={maxMarks}
+                                  placeholder={isPending ? "--" : undefined}
+                                  value={assess.score ?? ""}
+                                  onChange={(e) => handleScoreChange(assess.id, e.target.value, maxMarks)}
+                                  disabled={assess.isDropped && !assess.score}
+                                  className={cn(
+                                    "w-full text-center text-2xl font-mono bg-transparent outline-none border-none leading-none",
+                                    "placeholder:text-white/20",
+                                    "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                    scoreTextColor
+                                  )}
+                                  style={{ caretColor: gradeColor ?? courseColor }}
+                                />
+                                <span className="text-[9px] font-mono text-white/25 mt-0.5">/ {maxMarks}</span>
+                              </div>
+
                             </div>
-                            <span className={cn("font-medium text-sm", assess.isDropped ? "text-gray-700" : "text-gray-600")}>/ {maxMarks}</span>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
+
                 </div>
-              </div>
-            )}
+              );
+              return (
+                <div className="flex-1 flex flex-col h-full min-h-0 relative">
+                  {DetailContent}
+                </div>
+              );
+            })()}
+
           </div>
         </div>
       </div>
